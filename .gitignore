@@ -3,7 +3,7 @@ data/
 data/test2015/
 saved_models/
 Техническое задание на разработку Similar Image Finder.docx
-
+.gitignore
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
