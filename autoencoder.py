@@ -171,9 +171,9 @@ def train_autoencoder(transformed_dataset, train_batches, model=None,
 
     if model == "" or model is None:
         # Find latest model in the models folder
-        first_epoch = int(model_filenames[-1].split('_')[4].split(".")[0]) - 1
-        model = ClagnoscoAutoencoder()
         model_filenames = sorted([f for f in os.listdir(SAVE_FOLDER) if f.endswith('.pt')])
+        first_epoch = int(model_filenames[-1].split('_')[4].split(".")[0])
+        model = ClagnoscoAutoencoder()
         model.load_state_dict(torch.load(SAVE_FOLDER+model_filenames[-1]))
     elif type(model) == str:
         if model.lower() == "create":
@@ -182,9 +182,10 @@ def train_autoencoder(transformed_dataset, train_batches, model=None,
             model = ClagnoscoAutoencoder()
         else:
             # Load model name from string
-            first_epoch = int(model.split('_')[4].split(".")[0]) - 1
+            first_epoch = int(model.split('_')[4].split(".")[0])
+            model_filename = model
             model = ClagnoscoAutoencoder()
-            model.load_state_dict(torch.load(SAVE_FOLDER+model))
+            model.load_state_dict(torch.load(SAVE_FOLDER+model_filename))
     model.train()
     model.to(DEVICE)
 
