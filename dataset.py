@@ -3,7 +3,6 @@ from PIL import Image
 import numpy as np
 import pandas as pd
 import os
-from tqdm.notebook import tqdm
 from torchvision import transforms
 import random
 
@@ -42,7 +41,7 @@ class ClagnoscoDataset(torch.utils.data.Dataset):
             'image_height': self.data.loc[idx, 'image_height'],
             'image_square': image_square,
             'caption': caption,
-            'embedding': torch.tensor(embedding, dtype=torch.float16).to(DEVICE)
+            'embedding': torch.tensor(embedding, dtype=torch.float32)
         }
     
     def bucketize(self):
@@ -60,7 +59,10 @@ class ClagnoscoDataset(torch.utils.data.Dataset):
     
     def random_splitting_batching_buckets(self, percent=0.75, seed=42, batch=-1, max_batch=32):
         '''
-        batch = -1 -- Automatic harmonic mean
+        Splitting into train/test parts. 0 and 1 percent actually work.
+        
+        batch = -1 -- Automatic harmonic mean (default)
+        
         batch = 0  -- No batches
         '''
         bucket_count = [i[1] for i in self.bucket_count]
@@ -73,23 +75,22 @@ class ClagnoscoDataset(torch.utils.data.Dataset):
                 batch = round(len_array / sum(1/(x*percent) for x in array if x > 0))
             if batch == 0:
                 batch = 1
-            if max_batch < batch:
+            if batch > max_batch:
                 batch = max_batch
             return batch
-        
-        if max_batch < batch:
-            batch = max_batch
 
-        part1 = []
-        part2 = []
         rev_percent = 1 - percent
-        is_harmonic = True if batch == -1 else False
-        if is_harmonic:
+        if batch == -1:
             batch1 = harmonic_mean(bucket_count, percent, max_batch)
             batch2 = harmonic_mean(bucket_count, rev_percent, max_batch)
         else:
+            if batch > max_batch:
+                batch = max_batch
             batch1 = batch
             batch2 = batch
+        
+        part1 = []
+        part2 = []
         for wh, bucket in self.buckets.items():
             random.seed(seed)
             random.shuffle(bucket)
@@ -128,6 +129,8 @@ class TransformedClagnoscoDataset(torch.utils.data.Dataset):
             self.transform = transforms.Compose([
                 transforms.ToTensor(),
             ])
+        else:
+            self.transform = transform
         
     def __len__(self):
         return len(self.dataset)
@@ -141,9 +144,39 @@ class TransformedClagnoscoDataset(torch.utils.data.Dataset):
             item['image_square'] = self.transform(item['image_square'])
         
         # Calculate aspect ratio for the model
-        ratio = torch.tensor([[item['image_width'] / item['image_height']]], dtype=torch.float32).to(DEVICE)
+        ratio = torch.tensor([item['image_width'] / item['image_height']], dtype=torch.float32).to(DEVICE)
         
         return item, ratio
+
+
+def iterate_batched_buckets(transformed_dataset, batched_buckets):
+    """
+    Inputs:
+        - transformed_dataset: instance of TransformedClagnoscoDataset
+        - batched_buckets: list of [(width, height), [idx1, idx2, ...]] batches
+    Yields:
+        - batch: dict of batch elements (image, caption, etc.)
+        - ratios: tensor of aspect ratios
+        - resolution: (width, height)
+    """
+    for resolution, index_batch in batched_buckets:
+        batch_items = [transformed_dataset[i] for i in index_batch]  # Each is (item_dict, ratio_tensor)
+
+        items, ratios = zip(*batch_items)
+
+        # Manually stack tensors
+        batch = {}
+        for key in items[0]:
+            values = [item[key] for item in items]
+            if isinstance(values[0], torch.Tensor):
+                try:
+                    batch[key] = torch.stack(values)
+                except Exception:
+                    batch[key] = values  # for irregular shapes
+            else:
+                batch[key] = values
+
+        yield batch, torch.stack(ratios), resolution
 
 
 if __name__ == "__main__":
