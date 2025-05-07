@@ -4,6 +4,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 from datetime import datetime
 import os
+import requests
 if __name__ == "__main__":
     from tqdm import tqdm
 else:
@@ -149,6 +150,30 @@ class ClagnoscoAutoencoder(nn.Module):
         return latent, emb_pred, recon
 
 
+def model_loader(model=None, first_epoch=0):
+    '''
+    - model: name of the model to load (default is None, which loads the latest model; create a new model if "create")
+    '''
+    if model == "" or model is None:
+        # Find latest model in the models folder
+        model_filenames = sorted([f for f in os.listdir(SAVE_FOLDER) if f.endswith('.pt')])
+        first_epoch = int(model_filenames[-1].split('_')[4].split(".")[0])
+        model = ClagnoscoAutoencoder()
+        model.load_state_dict(torch.load(SAVE_FOLDER+model_filenames[-1]))
+    elif type(model) == str:
+        if model.lower() == "create":
+            # Create a new model
+            print("Creating a new model")
+            first_epoch = 0
+            model = ClagnoscoAutoencoder()
+        else:
+            # Load model name from string
+            first_epoch = int(model.split('_')[4].split(".")[0])
+            model_filename = model
+            model = ClagnoscoAutoencoder()
+            model.load_state_dict(torch.load(SAVE_FOLDER+model_filename))
+    return model, first_epoch
+
 def train_autoencoder(transformed_dataset, train_batches, model=None,
                       num_epochs=10, first_epoch=0,
                       lr=1e-4, loss_recon_weight=0.5):
@@ -159,7 +184,6 @@ def train_autoencoder(transformed_dataset, train_batches, model=None,
     Inputs:
         - transformed_dataset: instance of TransformedClagnoscoDataset
         - train_batches: list of [(width, height), [idx1, idx2, ...]] batches
-        - model: name of the model to load (default is None, which loads the latest model; create a new model if "create")
         - num_epochs: number of epochs to train (default is 10)
         - first_epoch: starting epoch for training (default is 0, meaning first)
         - lr: learning rate for the optimizer (default is 1e-4)
@@ -168,24 +192,7 @@ def train_autoencoder(transformed_dataset, train_batches, model=None,
         - model: trained autoencoder model
         - loss log: log file with loss values for each step
     """
-
-    if model == "" or model is None:
-        # Find latest model in the models folder
-        model_filenames = sorted([f for f in os.listdir(SAVE_FOLDER) if f.endswith('.pt')])
-        first_epoch = int(model_filenames[-1].split('_')[4].split(".")[0])
-        model = ClagnoscoAutoencoder()
-        model.load_state_dict(torch.load(SAVE_FOLDER+model_filenames[-1]))
-    elif type(model) == str:
-        if model.lower() == "create":
-            # Create a new model
-            first_epoch = 0
-            model = ClagnoscoAutoencoder()
-        else:
-            # Load model name from string
-            first_epoch = int(model.split('_')[4].split(".")[0])
-            model_filename = model
-            model = ClagnoscoAutoencoder()
-            model.load_state_dict(torch.load(SAVE_FOLDER+model_filename))
+    model, first_epoch = model_loader(model=model, first_epoch=first_epoch)
     model.train()
     model.to(DEVICE)
 
@@ -202,7 +209,8 @@ def train_autoencoder(transformed_dataset, train_batches, model=None,
 
         with open(SAVE_FOLDER+loss_log_filename, 'w') as loss_log:
             
-            for _ in tqdm(range(len_train_batches), total=len_train_batches, desc=f"Epoch {epoch+1}/{num_epochs}"):
+            tqdm_bar = tqdm(range(len_train_batches), total=len_train_batches, desc=f"Epoch {epoch+1}/{num_epochs}")
+            for _ in tqdm_bar:
                 batch_dict, batch_ratios, resolution = next(batched_buckets_gen)
 
                 batch_imgs_inputs = batch_dict['image'].to(DEVICE)
@@ -222,12 +230,51 @@ def train_autoencoder(transformed_dataset, train_batches, model=None,
                 optimizer.step()
 
                 batch_loss = loss.item()
+                batch_loss_emb_pred = loss_emb_pred.item()
+                batch_loss_recon = loss_recon.item()
+
+                tqdm_bar.set_postfix(loss=f"{batch_loss:.4f}", loss_emb_pred=f"{batch_loss_emb_pred:.4f}", loss_recon=f"{batch_loss_recon:.4f}")
+
                 losses.append(batch_loss)
-                loss_log.write(f"{batch_loss:.8f}\n")
+                loss_log.write(f"{batch_loss:.8f}\t{batch_loss_emb_pred:.8f}\t{batch_loss_recon:.8f}\n")
 
         avg_loss = sum(losses) / len(losses)
         torch.save(model.state_dict(), SAVE_FOLDER+model_filename)
         print(f"[Epoch {epoch+1}] Avg Loss: {avg_loss:.6f} - Saved to {model_filename}")
+
+def run_image_through_autoencoder(model, input_image):
+    """
+    Pass an image through the ClagnoscoAutoencoder and return the restored image (PIL), embedding and latent.
+
+    Args:
+        input_image: PIL.Image or str (path or URL)
+        model: ClagnoscoAutoencoder (must be in eval mode)
+
+    Returns:
+        restored_pil (PIL.Image), latent (Tensor), embedding (Tensor)
+    """
+    if isinstance(input_image, str):
+        if input_image.startswith("http"):
+            input_image = Image.open(requests.get(input_image, stream=True).raw).convert("RGB")
+        else:
+            input_image = Image.open(input_image).convert("RGB")
+
+    w, h = input_image.size
+    ratio = torch.tensor([[w / h]], dtype=torch.float32).to(DEVICE)
+
+    transform = transforms.Compose([
+        transforms.ToTensor(),
+    ])
+
+    input_tensor = transform(input_image).unsqueeze(0).to(DEVICE)  # [1, 3, H, W]
+
+    with torch.no_grad():
+        latent, emb_pred, recon = model(input_tensor, ratio)
+
+    restored_tensor = recon.squeeze(0).cpu().clamp(0, 1)  # [3, H, W]
+    restored_pil = transforms.ToPILImage()(restored_tensor)
+
+    return latent.squeeze(0), emb_pred.squeeze(0), restored_pil
 
 def delete_untrained_loss_log_files():
     """
