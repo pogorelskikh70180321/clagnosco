@@ -154,6 +154,7 @@ def train_autoencoder(model, transformed_dataset, train_batches, num_epochs=10, 
     criterion = nn.MSELoss()
     optimizer = optim.Adam(model.parameters(), lr=lr)
     save_folder = "models/"
+    len_train_batches = len(train_batches)
 
     for epoch in range(num_epochs):
         losses = []
@@ -164,7 +165,7 @@ def train_autoencoder(model, transformed_dataset, train_batches, num_epochs=10, 
 
         with open(save_folder+loss_log_filename, 'w') as loss_log:
             
-            for _ in tqdm(range(len(train_batches)), total=len(train_batches), desc=f"Epoch {epoch+1}/{num_epochs}"):
+            for _ in tqdm(range(len_train_batches), total=len_train_batches, desc=f"Epoch {epoch+1}/{num_epochs}"):
                 batch_dict, batch_ratios, resolution = next(batched_buckets_gen)
 
                 batch_imgs_inputs = batch_dict['image'].to(DEVICE)
