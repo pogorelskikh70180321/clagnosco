@@ -11,6 +11,8 @@ else:
 
 from dataset import *
 
+SAVE_FOLDER = "models/"
+
 
 class ClagnoscoEncoder(nn.Module):
     '''
@@ -104,7 +106,7 @@ class ClagnoscoDecoder(nn.Module):
     def forward(self, latent, emb_pred, ratio):
         """
         latent: [B, latent_dim]
-        embed:  [B, embed_dim]
+        emb_pred:  [B, embed_dim]
         ratio:  [B, 1] (e.g., torch.tensor([[1.0], [1.33], ...]))
         """
         x = torch.cat([latent, emb_pred, ratio], dim=1)
@@ -147,23 +149,57 @@ class ClagnoscoAutoencoder(nn.Module):
         return latent, emb_pred, recon
 
 
-def train_autoencoder(model, transformed_dataset, train_batches, num_epochs=10, lr=1e-4, loss_recon_weight=0.5):
+def train_autoencoder(transformed_dataset, train_batches, model=None,
+                      num_epochs=10, first_epoch=0,
+                      lr=1e-4, loss_recon_weight=0.5):
+    """
+    Train the autoencoder model on the transformed dataset.
+    The model is saved in the SAVE_FOLDER ("./models/") with a timestamp.
+
+    Inputs:
+        - transformed_dataset: instance of TransformedClagnoscoDataset
+        - train_batches: list of [(width, height), [idx1, idx2, ...]] batches
+        - model: name of the model to load (default is None, which loads the latest model; create a new model if "create")
+        - num_epochs: number of epochs to train (default is 10)
+        - first_epoch: starting epoch for training (default is 0, meaning first)
+        - lr: learning rate for the optimizer (default is 1e-4)
+        - loss_recon_weight: weight for reconstruction loss vs embedding loss (default is 0.5)
+    Outputs (files saved in SAVE_FOLDER):
+        - model: trained autoencoder model
+        - loss log: log file with loss values for each step
+    """
+
+    if model == "" or model is None:
+        # Find latest model in the models folder
+        first_epoch = int(model_filenames[-1].split('_')[4].split(".")[0]) - 1
+        model = ClagnoscoAutoencoder()
+        model_filenames = sorted([f for f in os.listdir(SAVE_FOLDER) if f.endswith('.pt')])
+        model.load_state_dict(torch.load(SAVE_FOLDER+model_filenames[-1]))
+    elif type(model) == str:
+        if model.lower() == "create":
+            # Create a new model
+            first_epoch = 0
+            model = ClagnoscoAutoencoder()
+        else:
+            # Load model name from string
+            first_epoch = int(model.split('_')[4].split(".")[0]) - 1
+            model = ClagnoscoAutoencoder()
+            model.load_state_dict(torch.load(SAVE_FOLDER+model))
     model.train()
     model.to(DEVICE)
 
     criterion = nn.MSELoss()
     optimizer = optim.Adam(model.parameters(), lr=lr)
-    save_folder = "models/"
     len_train_batches = len(train_batches)
 
-    for epoch in range(num_epochs):
+    for epoch in range(first_epoch, num_epochs):
         losses = []
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        model_filename = f"autoencoder_{timestamp}_epoch_{epoch}.pt"
-        loss_log_filename = f"autoencoder_{timestamp}_epoch_{epoch}_loss.txt"
+        model_filename = f"autoencoder_{timestamp}_epoch_{epoch+1}.pt"
+        loss_log_filename = f"autoencoder_{timestamp}_epoch_{epoch+1}_loss.txt"
         batched_buckets_gen = iterate_batched_buckets(transformed_dataset, train_batches)
 
-        with open(save_folder+loss_log_filename, 'w') as loss_log:
+        with open(SAVE_FOLDER+loss_log_filename, 'w') as loss_log:
             
             for _ in tqdm(range(len_train_batches), total=len_train_batches, desc=f"Epoch {epoch+1}/{num_epochs}"):
                 batch_dict, batch_ratios, resolution = next(batched_buckets_gen)
@@ -189,5 +225,19 @@ def train_autoencoder(model, transformed_dataset, train_batches, num_epochs=10, 
                 loss_log.write(f"{batch_loss:.8f}\n")
 
         avg_loss = sum(losses) / len(losses)
-        torch.save(model.state_dict(), save_folder+model_filename)
+        torch.save(model.state_dict(), SAVE_FOLDER+model_filename)
         print(f"[Epoch {epoch+1}] Avg Loss: {avg_loss:.6f} - Saved to {model_filename}")
+
+def delete_untrained_loss_log_files():
+    """
+    Delete untrained loss log files in the SAVE_FOLDER.
+    """
+    models = sorted([f.split('.pt')[0] for f in os.listdir(SAVE_FOLDER) if f.endswith('.pt')])
+    for filename in sorted([f for f in os.listdir(SAVE_FOLDER) if f.endswith('_loss.txt')])[:-1]:
+        if filename.split('_loss.txt')[0] not in models:
+            file_path = os.path.join(SAVE_FOLDER, filename)
+            try:
+                os.remove(file_path)
+                print(f"Deleted untrained log loss file: {file_path}")
+            except Exception as e:
+                print(f"Error deleting file {file_path}: {e}")

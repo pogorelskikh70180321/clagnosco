@@ -57,37 +57,37 @@ class ClagnoscoDataset(torch.utils.data.Dataset):
     def bucket_counting(self):
         return sorted([(i, len(j)) for i, j in self.buckets.items()], key=lambda x: -x[1])
     
-    def random_splitting_batching_buckets(self, percent=0.75, seed=42, batch=-1, max_batch=32):
+    def random_splitting_batching_buckets(self, percent=0.75, seed=42, batch_size=-1, max_batch_size=32):
         '''
         Splitting into train/test parts. 0 and 1 percent actually work.
         
-        batch = -1 -- Automatic harmonic mean (default)
+        batch_size = -1 -- Automatic harmonic mean (default)
         
-        batch = 0  -- No batches
+        batch_size = 0  -- No batches
         '''
         bucket_count = [i[1] for i in self.bucket_count]
 
-        def harmonic_mean(array, percent, max_batch):
+        def harmonic_mean(array, percent, max_batch_size):
             len_array = len(array)
             if percent == 0 or percent == 1:
-                batch = round(len_array / sum(1/x for x in array if x > 0))
+                batch_size = round(len_array / sum(1/x for x in array if x > 0))
             else:
-                batch = round(len_array / sum(1/(x*percent) for x in array if x > 0))
-            if batch == 0:
-                batch = 1
-            if batch > max_batch:
-                batch = max_batch
-            return batch
+                batch_size = round(len_array / sum(1/(x*percent) for x in array if x > 0))
+            if batch_size == 0:
+                batch_size = 1
+            if batch_size > max_batch_size:
+                batch_size = max_batch_size
+            return batch_size
 
         rev_percent = 1 - percent
-        if batch == -1:
-            batch1 = harmonic_mean(bucket_count, percent, max_batch)
-            batch2 = harmonic_mean(bucket_count, rev_percent, max_batch)
+        if batch_size == -1:
+            batch_size1 = harmonic_mean(bucket_count, percent, max_batch_size)
+            batch_size2 = harmonic_mean(bucket_count, rev_percent, max_batch_size)
         else:
-            if batch > max_batch:
-                batch = max_batch
-            batch1 = batch
-            batch2 = batch
+            if batch_size > max_batch_size:
+                batch_size = max_batch_size
+            batch_size1 = batch_size
+            batch_size2 = batch_size
         
         part1 = []
         part2 = []
@@ -99,18 +99,18 @@ class ClagnoscoDataset(torch.utils.data.Dataset):
             this_split = bucket[splitting_part:]
             this_split_len = len(this_split)
             if this_split_len != 0:
-                if batch1 != 0:
-                    for i in range(0, this_split_len, batch1):
-                        part1.append([wh, this_split[i:i+batch1]])
+                if batch_size1 != 0:
+                    for i in range(0, this_split_len, batch_size1):
+                        part1.append([wh, this_split[i:i+batch_size1]])
                 else:
                     part1.append([wh, this_split])
             
             this_split = bucket[:splitting_part]
             this_split_len = len(this_split)
             if this_split_len != 0:
-                if batch2 != 0:
-                    for i in range(0, this_split_len, batch2):
-                        part2.append([wh, this_split[i:i+batch2]])
+                if batch_size2 != 0:
+                    for i in range(0, this_split_len, batch_size2):
+                        part2.append([wh, this_split[i:i+batch_size2]])
                 else:
                     part2.append([wh, this_split])
             seed += 1
