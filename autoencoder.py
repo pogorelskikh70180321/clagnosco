@@ -147,7 +147,7 @@ class ClagnoscoAutoencoder(nn.Module):
         return latent, emb_pred, recon
 
 
-def train_autoencoder(model, transformed_dataset, train_batches, num_epochs=10, lr=1e-4, loss_part_weight=0.5):
+def train_autoencoder(model, transformed_dataset, train_batches, num_epochs=10, lr=1e-4, loss_recon_weight=0.5):
     model.train()
     model.to(DEVICE)
 
@@ -179,7 +179,7 @@ def train_autoencoder(model, transformed_dataset, train_batches, num_epochs=10, 
                 loss_emb_pred = criterion(emb_pred, batch_embeddings)
                 loss_recon = criterion(recon, batch_imgs_targets)
 
-                loss = (1 - loss_part_weight) * loss_emb_pred + loss_part_weight * loss_recon
+                loss = (1 - loss_recon_weight) * loss_emb_pred + loss_recon_weight * loss_recon
                 loss.backward()
                 optimizer.step()
 
