@@ -144,9 +144,10 @@ class TransformedClagnoscoDataset(torch.utils.data.Dataset):
             item['image_square'] = self.transform(item['image_square'])
         
         # Calculate aspect ratio for the model
-        ratio = torch.tensor([item['image_width'] / item['image_height']], dtype=torch.float32).to(DEVICE)
+        # ratio = torch.tensor([item['image_width'] / item['image_height']], dtype=torch.float32).to(DEVICE)
         
-        return item, ratio
+        # return item, ratio
+        return item
 
 
 def iterate_batched_buckets(transformed_dataset, batched_buckets):
@@ -156,18 +157,18 @@ def iterate_batched_buckets(transformed_dataset, batched_buckets):
         - batched_buckets: list of [(width, height), [idx1, idx2, ...]] batches
     Yields:
         - batch: dict of batch elements (image, caption, etc.)
-        - ratios: tensor of aspect ratios
+        # - ratios: tensor of aspect ratios
         - resolution: (width, height)
     """
     for resolution, index_batch in batched_buckets:
         batch_items = [transformed_dataset[i] for i in index_batch]  # Each is (item_dict, ratio_tensor)
 
-        items, ratios = zip(*batch_items)
+        # items, ratios = zip(*batch_items)
 
         # Manually stack tensors
         batch = {}
-        for key in items[0]:
-            values = [item[key] for item in items]
+        for key in batch_items[0]:
+            values = [item[key] for item in batch_items]
             if isinstance(values[0], torch.Tensor):
                 try:
                     batch[key] = torch.stack(values)
@@ -176,7 +177,8 @@ def iterate_batched_buckets(transformed_dataset, batched_buckets):
             else:
                 batch[key] = values
 
-        yield batch, torch.stack(ratios), resolution
+        # yield batch, torch.stack(ratios), resolution
+        yield batch, resolution
 
 
 if __name__ == "__main__":

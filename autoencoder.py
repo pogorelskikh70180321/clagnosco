@@ -22,12 +22,12 @@ class ClagnoscoEncoder(nn.Module):
     '''
     def __init__(
         self,
-        latent_dim=1024,
+        latent_dim=4096,
         backbone_channels=1024,
         negative_slope=0.01
     ):
         super().__init__()
-        self.latent_dim_size = latent_dim
+        self.latent_dim_size = latent_dim 
 
         self.conv = nn.Sequential(
             nn.Conv2d(in_channels=3, out_channels=64, kernel_size=4, stride=2, padding=1),
@@ -43,10 +43,12 @@ class ClagnoscoEncoder(nn.Module):
             nn.LeakyReLU(negative_slope, inplace=True),
         )
 
-        self.pool = nn.AdaptiveAvgPool2d((2, 2))  # Output: (B, backbone_channels, 2, 2)
+        self.pool = nn.AdaptiveAvgPool2d((4, 4))  # Output: (B, backbone_channels, 4, 4)
 
         self.lin = nn.Sequential(
-            nn.Linear(backbone_channels * 2 * 2, latent_dim),
+            nn.Linear(backbone_channels * 4 * 4, backbone_channels),
+            nn.LeakyReLU(negative_slope, inplace=True),
+            nn.Linear(backbone_channels, latent_dim),
         )
 
     def forward(self, x):
@@ -59,15 +61,17 @@ class ClagnoscoEncoder(nn.Module):
 
 class ClagnoscoDecoder(nn.Module):
     '''
-    Input: latent values, ratio
+    Input: latent values #, ratio
     Output: restored square image
     '''
-    def __init__(self, latent_dim=1024, image_res=256, negative_slope=0.01):
+    def __init__(self, latent_dim=4096, image_res=256, negative_slope=0.01):
         super().__init__()
         self.init_size = image_res // 32
 
         self.lin = nn.Sequential(
-            nn.Linear(latent_dim + 1, latent_dim),
+            # nn.Linear(latent_dim + 1, latent_dim),
+            nn.Linear(latent_dim, latent_dim),
+            nn.LeakyReLU(negative_slope, inplace=True),
         )
 
         self.decoder = nn.Sequential(
@@ -87,12 +91,14 @@ class ClagnoscoDecoder(nn.Module):
             nn.Sigmoid()
         )
 
-    def forward(self, latent, ratio):
+    # def forward(self, latent, ratio):
+    def forward(self, latent):
         """
         latent: [B, latent_dim]
-        ratio:  [B, 1]
+        # ratio:  [B, 1]
         """
-        x = torch.cat([latent, ratio], dim=1)                  # [B, latent_dim + 1]
+        # x = torch.cat([latent, ratio], dim=1)                  # [B, latent_dim + 1]
+        x = torch.cat([latent], dim=1)                         # [B, latent_dim]
         lined = self.lin(x)                                    # [B, latent_dim]
         img = self.decoder(lined.unsqueeze(-1).unsqueeze(-1))  # [B, latent_dim, 1, 1]
         return img                                             # [B, 3, 256, 256]
@@ -101,7 +107,7 @@ class ClagnoscoDecoder(nn.Module):
 class ClagnoscoAutoencoder(nn.Module):
     def __init__(
         self,
-        latent_dim=1024,
+        latent_dim=4096,
         backbone_channels=1024,
         image_res=512,
         negative_slope=0.01
@@ -118,15 +124,17 @@ class ClagnoscoAutoencoder(nn.Module):
             negative_slope=negative_slope
         )
 
-    def forward(self, x, ratio):
+    # def forward(self, x, ratio):
+    def forward(self, x):
         """
         x:     [B, 3, H, W]
-        ratio: [B, 1] (e.g., torch.tensor([[1.0], [1.33], ...]))
+        # ratio: [B, 1] (e.g., torch.tensor([[1.0], [1.33], ...]))
         """
         # latent, emb_pred = self.encoder(x)
         # recon = self.decoder(latent, emb_pred, ratio)
         latent = self.encoder(x)
-        recon = self.decoder(latent, ratio)
+        # recon = self.decoder(latent, ratio)
+        recon = self.decoder(latent)
         return latent, recon
 
 
@@ -194,12 +202,13 @@ def train_autoencoder(transformed_dataset, train_batches, model=None,
             
             tqdm_bar = tqdm(range(len_train_batches), total=len_train_batches, desc=f"Epoch {epoch+1}/{num_epochs}")
             for n, _ in enumerate(tqdm_bar):
-                batch_dict, batch_ratios, resolution = next(batched_buckets_gen)
+                # batch_dict, batch_ratios, resolution = next(batched_buckets_gen)
+                batch_dict, resolution = next(batched_buckets_gen)
 
                 batch_imgs_inputs = batch_dict['image'].to(DEVICE)
                 batch_imgs_targets = batch_dict['image_square'].to(DEVICE)
                 # batch_embeddings = batch_dict['embedding'].to(DEVICE)
-                batch_ratios = batch_ratios.to(DEVICE)
+                # batch_ratios = batch_ratios.to(DEVICE)
 
                 # optimizer.zero_grad()
                 # latent, emb_pred, recon = model(batch_imgs_inputs, batch_ratios)
@@ -210,15 +219,16 @@ def train_autoencoder(transformed_dataset, train_batches, model=None,
 
                 optimizer.zero_grad()
                 # latent, emb_pred, recon = model(batch_imgs_inputs, batch_ratios)
-                latent, recon = model(batch_imgs_inputs, batch_ratios)
+                # latent, recon = model(batch_imgs_inputs, batch_ratios)
+                latent, recon = model(batch_imgs_inputs)
                 # step 2: reconstruction
                 loss_recon = criterion(recon, batch_imgs_targets) # * loss_recon_weight
                 loss_recon.backward()
                 optimizer.step()
 
                 # loss = loss_emb_pred + loss_recon
-                loss = loss_recon
-                batch_loss = loss.item()
+                # loss = loss_recon
+                batch_loss = loss_recon.item()
                 # batch_loss_emb_pred = loss_emb_pred.item()
                 # batch_loss_recon = loss_recon.item()
 
@@ -250,8 +260,8 @@ def run_image_through_autoencoder(model, input_image):
         else:
             input_image = Image.open(input_image).convert("RGB")
 
-    w, h = input_image.size
-    ratio = torch.tensor([[w / h]], dtype=torch.float32).to(DEVICE)
+    # w, h = input_image.size
+    # ratio = torch.tensor([[w / h]], dtype=torch.float32).to(DEVICE)
 
     transform = transforms.Compose([
         transforms.ToTensor(),
@@ -261,7 +271,8 @@ def run_image_through_autoencoder(model, input_image):
 
     with torch.no_grad():
         # latent, emb_pred, recon = model(input_tensor, ratio)
-        latent, recon = model(input_tensor, ratio)
+        # latent, recon = model(input_tensor, ratio)
+        latent, recon = model(input_tensor)
 
     restored_tensor = recon.squeeze(0).cpu().clamp(0, 1)  # [3, H, W]
     restored_pil = transforms.ToPILImage()(restored_tensor)
