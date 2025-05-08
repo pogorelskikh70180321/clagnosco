@@ -25,14 +25,14 @@ class ClagnoscoDataset(torch.utils.data.Dataset):
         uid = self.data.loc[idx, 'uid']
         image_resize_path = os.path.join(self.base_dir, 'images_resize', f"{uid}.jpg")
         image_square_path = os.path.join(self.base_dir, 'images_square', f"{uid}.jpg")
-        caption_path = os.path.join(self.base_dir, 'captions', f"{uid}.txt")
-        embedding_path = os.path.join(self.base_dir, 'captions_emb', f"{uid}.npy")
+        # caption_path = os.path.join(self.base_dir, 'captions', f"{uid}.txt")
+        # embedding_path = os.path.join(self.base_dir, 'captions_emb', f"{uid}.npy")
 
         image = Image.open(image_resize_path).convert('RGB')
         image_square = Image.open(image_square_path).convert('RGB')
-        with open(caption_path, 'r', encoding='utf-8') as f:
-            caption = f.read().strip()
-        embedding = np.load(embedding_path)
+        # with open(caption_path, 'r', encoding='utf-8') as f:
+        #     caption = f.read()
+        # embedding = np.load(embedding_path)
 
         return {
             'uid': uid,
@@ -40,8 +40,8 @@ class ClagnoscoDataset(torch.utils.data.Dataset):
             'image_width': self.data.loc[idx, 'image_width'],
             'image_height': self.data.loc[idx, 'image_height'],
             'image_square': image_square,
-            'caption': caption,
-            'embedding': torch.tensor(embedding, dtype=torch.float32)
+            # 'caption': caption,
+            # 'embedding': torch.tensor(embedding, dtype=torch.float32)
         }
     
     def bucketize(self):
