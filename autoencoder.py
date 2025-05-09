@@ -243,6 +243,28 @@ def train_autoencoder(transformed_dataset, train_batches, model=None,
         torch.save(model.state_dict(), SAVE_FOLDER+model_filename)
         print(f"[Epoch {epoch+1}] Avg Loss: {avg_loss:.6f} - Saved to {model_filename}")
 
+
+def open_image(img):
+    """
+    Open an image from a URL or local path and convert it to RGB format.
+
+    Args:
+        img: str (URL or local path) or PIL.Image
+
+    Returns:
+        PIL.Image
+    """
+    if isinstance(img, str):
+        if img.startswith("http"):
+            return Image.open(requests.get(img, stream=True).raw).convert("RGB")
+        else:
+            return Image.open(img).convert("RGB")
+    elif isinstance(img, Image.Image):
+        return img.convert("RGB")
+    else:
+        raise ValueError("Input must be URL, local path, or PIL.Image")
+
+
 def run_image_through_autoencoder(model, input_image):
     """
     Pass an image through the ClagnoscoAutoencoder and return the restored image (PIL), embedding and latent.
@@ -254,11 +276,7 @@ def run_image_through_autoencoder(model, input_image):
     Returns:
         restored_pil (PIL.Image), latent (Tensor), embedding (Tensor)
     """
-    if isinstance(input_image, str):
-        if input_image.startswith("http"):
-            input_image = Image.open(requests.get(input_image, stream=True).raw).convert("RGB")
-        else:
-            input_image = Image.open(input_image).convert("RGB")
+    input_image = open_image(input_image)
 
     # w, h = input_image.size
     # ratio = torch.tensor([[w / h]], dtype=torch.float32).to(DEVICE)
