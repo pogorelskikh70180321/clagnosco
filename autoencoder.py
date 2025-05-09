@@ -69,7 +69,6 @@ class ClagnoscoDecoder(nn.Module):
         self.init_size = image_res // 32
 
         self.lin = nn.Sequential(
-            # nn.Linear(latent_dim + 1, latent_dim),
             nn.Linear(latent_dim, latent_dim),
             nn.LeakyReLU(negative_slope, inplace=True),
         )
@@ -91,13 +90,11 @@ class ClagnoscoDecoder(nn.Module):
             nn.Sigmoid()
         )
 
-    # def forward(self, latent, ratio):
     def forward(self, latent):
         """
         latent: [B, latent_dim]
         # ratio:  [B, 1]
         """
-        # x = torch.cat([latent, ratio], dim=1)                  # [B, latent_dim + 1]
         x = torch.cat([latent], dim=1)                         # [B, latent_dim]
         lined = self.lin(x)                                    # [B, latent_dim]
         img = self.decoder(lined.unsqueeze(-1).unsqueeze(-1))  # [B, latent_dim, 1, 1]
@@ -124,16 +121,12 @@ class ClagnoscoAutoencoder(nn.Module):
             negative_slope=negative_slope
         )
 
-    # def forward(self, x, ratio):
     def forward(self, x):
         """
         x:     [B, 3, H, W]
         # ratio: [B, 1] (e.g., torch.tensor([[1.0], [1.33], ...]))
         """
-        # latent, emb_pred = self.encoder(x)
-        # recon = self.decoder(latent, emb_pred, ratio)
         latent = self.encoder(x)
-        # recon = self.decoder(latent, ratio)
         recon = self.decoder(latent)
         return latent, recon
 
@@ -167,7 +160,7 @@ def model_loader(model=None, first_epoch=0):
 
 def train_autoencoder(transformed_dataset, train_batches, model=None,
                       num_epochs=10, first_epoch=0,
-                      lr=1e-4, loss_recon_weight=1.0):
+                      lr=1e-4):
     """
     Train the autoencoder model on the transformed dataset.
     The model is saved in the SAVE_FOLDER ("./models/") with a timestamp.
@@ -178,7 +171,6 @@ def train_autoencoder(transformed_dataset, train_batches, model=None,
         - num_epochs: number of epochs to train (default is 10)
         - first_epoch: starting epoch for training (default is 0, meaning first)
         - lr: learning rate for the optimizer (default is 1e-4)
-        # - loss_recon_weight: weight for reconstruction loss vs embedding loss (default is 0.5)
     Outputs (files saved in SAVE_FOLDER):
         - model: trained autoencoder model
         - loss log: log file with loss values for each step
@@ -202,41 +194,23 @@ def train_autoencoder(transformed_dataset, train_batches, model=None,
             
             tqdm_bar = tqdm(range(len_train_batches), total=len_train_batches, desc=f"Epoch {epoch+1}/{num_epochs}")
             for n, _ in enumerate(tqdm_bar):
-                # batch_dict, batch_ratios, resolution = next(batched_buckets_gen)
                 batch_dict, resolution = next(batched_buckets_gen)
 
                 batch_imgs_inputs = batch_dict['image'].to(DEVICE)
                 batch_imgs_targets = batch_dict['image_square'].to(DEVICE)
-                # batch_embeddings = batch_dict['embedding'].to(DEVICE)
-                # batch_ratios = batch_ratios.to(DEVICE)
-
-                # optimizer.zero_grad()
-                # latent, emb_pred, recon = model(batch_imgs_inputs, batch_ratios)
-                # # step 1: enbedding
-                # loss_emb_pred = criterion(emb_pred, batch_embeddings) * (1 - loss_recon_weight)
-                # loss_emb_pred.backward()
-                # optimizer.step()
 
                 optimizer.zero_grad()
-                # latent, emb_pred, recon = model(batch_imgs_inputs, batch_ratios)
-                # latent, recon = model(batch_imgs_inputs, batch_ratios)
                 latent, recon = model(batch_imgs_inputs)
-                # step 2: reconstruction
-                loss_recon = criterion(recon, batch_imgs_targets) # * loss_recon_weight
+                # reconstruction
+                loss_recon = criterion(recon, batch_imgs_targets)
                 loss_recon.backward()
                 optimizer.step()
 
-                # loss = loss_emb_pred + loss_recon
-                # loss = loss_recon
                 batch_loss = loss_recon.item()
-                # batch_loss_emb_pred = loss_emb_pred.item()
-                # batch_loss_recon = loss_recon.item()
 
-                # tqdm_bar.set_postfix(loss=f"{batch_loss:.4f}", loss_emb_pred=f"{batch_loss_emb_pred:.4f}", loss_recon=f"{batch_loss_recon:.4f}")
                 tqdm_bar.set_postfix(loss=f"{batch_loss:.4f}")
 
                 losses.append(batch_loss)
-                # loss_log.write(f"{batch_loss:.8f}\t{batch_loss_emb_pred:.8f}\t{batch_loss_recon:.8f}\n")
                 loss_log.write(f"{batch_loss:.8f}\n")
 
         avg_loss = sum(losses) / len(losses)
@@ -278,9 +252,6 @@ def run_image_through_autoencoder(model, input_image):
     """
     input_image = open_image(input_image)
 
-    # w, h = input_image.size
-    # ratio = torch.tensor([[w / h]], dtype=torch.float32).to(DEVICE)
-
     transform = transforms.Compose([
         transforms.ToTensor(),
     ])
@@ -288,14 +259,11 @@ def run_image_through_autoencoder(model, input_image):
     input_tensor = transform(input_image).unsqueeze(0).to(DEVICE)  # [1, 3, H, W]
 
     with torch.no_grad():
-        # latent, emb_pred, recon = model(input_tensor, ratio)
-        # latent, recon = model(input_tensor, ratio)
         latent, recon = model(input_tensor)
 
     restored_tensor = recon.squeeze(0).cpu().clamp(0, 1)  # [3, H, W]
     restored_pil = transforms.ToPILImage()(restored_tensor)
 
-    # return latent.squeeze(0), emb_pred.squeeze(0), restored_pil
     return latent.squeeze(0), restored_pil
 
 def delete_untrained_loss_log_files():
