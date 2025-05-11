@@ -11,7 +11,7 @@ if __name__ == "__main__":
     images_origin = pickle.loads(response.content)
 
     # Загрузка модели (1.23 GB)
-    url = "https://huggingface.co/pogorzelskich/clagnosco_2025-05-11/resolve/main/autoencoder_2025-05-11_09-25-02_epoch_71.pt?download=true"
+    url = "https://huggingface.co/pogorzelskich/clagnosco_2025-05-11/resolve/main/model.pt?download=true"
     model, _ = model_loader(url)
     model.eval()
 
