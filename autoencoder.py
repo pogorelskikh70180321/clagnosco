@@ -5,6 +5,7 @@ import torch.optim as optim
 from datetime import datetime
 import os
 import requests
+import tempfile
 # from torchmetrics.functional.image.ssim import structural_similarity_index_measure as ssim
 if __name__ == "__main__":
     from tqdm import tqdm
@@ -124,13 +125,34 @@ class ClagnoscoAutoencoder(nn.Module):
 
     def forward(self, x):
         """
-        x:     [B, 3, H, W]
-        # ratio: [B, 1] (e.g., torch.tensor([[1.0], [1.33], ...]))
+        x:     [B, 3, H, W] images
         """
         latent = self.encoder(x)
         recon = self.decoder(latent)
         return latent, recon
 
+
+def download_and_load_model(url, delete_temp=True):
+    response = requests.get(url)
+    if response.status_code != 200:
+        raise Exception(f"Failed to download model from {url}, status code: {response.status_code}")
+    
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".pt") as tmp_file:
+        tmp_file.write(response.content)
+        tmp_path = tmp_file.name
+
+    model_instance = ClagnoscoAutoencoder()
+    model_instance.load_state_dict(torch.load(tmp_path))
+    
+    if delete_temp:
+        try:
+            os.remove(tmp_path)
+            # print(f"Temporary file removed: {tmp_path}")
+        except Exception as e:
+            print(f"Warning: could not remove temp file: {e}")
+
+    print(f"Loaded model from URL: {url}")
+    return model_instance
 
 def model_loader(model=None, first_epoch=0):
     '''
@@ -150,14 +172,20 @@ def model_loader(model=None, first_epoch=0):
             print("Creating a new model")
             first_epoch = 0
             model = ClagnoscoAutoencoder()
+        elif model.startswith("http"):
+            # Downloading model from URL
+            print(f"Loading model from URL")
+            model = download_and_load_model(model)
+            first_epoch = -1
         else:
             # Load model name from string
             first_epoch = int(model.split('_')[4].split(".")[0])
             model_filename = model
             model = ClagnoscoAutoencoder()
             model.load_state_dict(torch.load(SAVE_FOLDER+model_filename))
-            print(f"Loading selected model: {model_filename}")
+            print(f"Loaded selected model: {model_filename}")
     return model, first_epoch
+
 
 def train_autoencoder(transformed_dataset, train_batches, model=None,
                       num_epochs=10, first_epoch=0,
@@ -214,7 +242,7 @@ def train_autoencoder(transformed_dataset, train_batches, model=None,
 
                 losses.append(batch_loss)
                 loss_log.write(f"{batch_loss:.8f}\n")
-                
+
                 current_avg_loss = sum(losses) / len(losses)
                 tqdm_bar.set_postfix(avg_loss=f"{current_avg_loss:.4f}", loss=f"{batch_loss:.4f}")
 
