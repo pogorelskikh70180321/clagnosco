@@ -180,6 +180,15 @@ def iterate_batched_buckets(transformed_dataset, batched_buckets):
         # yield batch, torch.stack(ratios), resolution
         yield batch, resolution
 
+def batch_buckets_to_list(batches):
+    """
+    Convert batches of buckets to a list.
+    """
+    list_idxs = []
+    for batch in [i[1] for i in batches]:
+        list_idxs.extend(batch)
+    return list_idxs
+
 
 if __name__ == "__main__":
     ds = ClagnoscoDataset()

@@ -258,6 +258,8 @@ def run_image_through_autoencoder(model, input_image):
 
     input_tensor = transform(input_image).unsqueeze(0).to(DEVICE)  # [1, 3, H, W]
 
+    model.eval()
+    model.to(DEVICE)
     with torch.no_grad():
         latent, recon = model(input_tensor)
 
@@ -265,6 +267,68 @@ def run_image_through_autoencoder(model, input_image):
     restored_pil = transforms.ToPILImage()(restored_tensor)
 
     return latent.squeeze(0), restored_pil
+
+
+def test_model(model, test_batches, transformed_dataset):
+    """
+    Test the autoencoder model on the transformed dataset.
+
+    Inputs:
+        - model: trained autoencoder model
+        - test_batches: list of [(width, height), [idx1, idx2, ...]] batches
+        - transformed_dataset: instance of TransformedClagnoscoDataset
+    Outputs:
+        - avg_loss: average pixel reconstruction error (MSE) for each test image
+        - losses: pixel reconstruction error (MSE) for each test image
+    """
+    model.eval()
+    model.to(DEVICE)
+
+    test_list = batch_buckets_to_list(test_batches)
+    losses = []
+    tqdm_bar = tqdm(test_list, desc="Testing")
+    for test_idx in tqdm_bar:
+        sample = transformed_dataset[test_idx]
+        test_image = sample['image'].unsqueeze(0).to(DEVICE)
+        test_image_square = sample['image_square'].unsqueeze(0).to(DEVICE)
+        with torch.no_grad():
+            latent, recon = model(test_image)
+            loss = F.mse_loss(recon, test_image_square).item()
+        losses.append(loss)
+        tqdm_bar.set_postfix(loss=f"{loss:.4f}")
+    avg_loss = sum(losses) / len(losses)
+    print(f"Avg Loss: {avg_loss:.6f}")
+    return avg_loss, losses
+
+
+def test_models(model_list, test_batches, transformed_dataset, save_avg=True):
+    """
+    Test multiple autoencoder models on the transformed dataset.
+
+    Inputs:
+        - model_list: list of model names (strings) to test
+        - test_batches: list of [(width, height), [idx1, idx2, ...]] batches
+        - transformed_dataset: instance of TransformedClagnoscoDataset
+    Outputs:
+        - avg_losses_dict: dictionary with model names as keys and average pixel reconstruction error (MSE) as values
+        - losses_dict: dictionary with model names as keys and pixel reconstruction error (MSE) lists as values
+    """
+    avg_losses_dict = {}
+    losses_dict = {}
+    for model in model_list:
+        print(f"Testing model: {model}")
+        model_instance, _ = model_loader(model=model)
+        avg_losses, losses = test_model(model_instance, test_batches, transformed_dataset)
+        avg_losses_dict[model] = avg_losses
+        losses_dict[model] = losses
+    if save_avg:
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        avg_losses_filename = f"autoencoder_{timestamp}_avg_losses.txt"
+        with open(SAVE_FOLDER+avg_losses_filename, 'w') as avg_loss_log:
+            for model, avg_loss in avg_losses_dict.items():
+                avg_loss_log.write(f"{model}: {avg_loss:.8f}\n")
+    return avg_losses_dict, losses_dict
+
 
 def delete_untrained_loss_log_files():
     """
