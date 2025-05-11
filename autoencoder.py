@@ -5,6 +5,7 @@ import torch.optim as optim
 from datetime import datetime
 import os
 import requests
+# from torchmetrics.functional.image.ssim import structural_similarity_index_measure as ssim
 if __name__ == "__main__":
     from tqdm import tqdm
 else:
@@ -180,6 +181,9 @@ def train_autoencoder(transformed_dataset, train_batches, model=None,
     model.to(DEVICE)
 
     criterion = nn.MSELoss()
+    # criterion = lambda recon, target: 1 - ssim(recon, target)
+    # criterion = lambda recon, target: 0.5 * F.mse_loss(recon, target) + 0.5 * (1 - ssim(recon, target, data_range=1.0))
+
     optimizer = optim.Adam(model.parameters(), lr=lr)
     len_train_batches = len(train_batches)
 
@@ -208,10 +212,11 @@ def train_autoencoder(transformed_dataset, train_batches, model=None,
 
                 batch_loss = loss_recon.item()
 
-                tqdm_bar.set_postfix(loss=f"{batch_loss:.4f}")
-
                 losses.append(batch_loss)
                 loss_log.write(f"{batch_loss:.8f}\n")
+                
+                current_avg_loss = sum(losses) / len(losses)
+                tqdm_bar.set_postfix(avg_loss=f"{current_avg_loss:.4f}", loss=f"{batch_loss:.4f}")
 
         avg_loss = sum(losses) / len(losses)
         torch.save(model.state_dict(), SAVE_FOLDER+model_filename)
@@ -295,7 +300,8 @@ def test_model(model, test_batches, transformed_dataset):
             latent, recon = model(test_image)
             loss = F.mse_loss(recon, test_image_square).item()
         losses.append(loss)
-        tqdm_bar.set_postfix(loss=f"{loss:.4f}")
+        current_avg_loss = sum(losses) / len(losses)
+        tqdm_bar.set_postfix(avg_loss=f"{current_avg_loss:.4f}", loss=f"{loss:.4f}")
     avg_loss = sum(losses) / len(losses)
     print(f"Avg Loss: {avg_loss:.6f}")
     return avg_loss, losses
