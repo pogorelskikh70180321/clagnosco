@@ -56,7 +56,7 @@ class ClagnoscoDataset(torch.utils.data.Dataset):
     
     def bucket_counting(self):
         '''
-        Подсчет количества изображений в каждом бакете.
+        Подсчёт количества изображений в каждом бакете.
         '''
         return sorted([(i, len(j)) for i, j in self.buckets.items()], key=lambda x: -x[1])
     

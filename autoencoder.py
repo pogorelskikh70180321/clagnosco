@@ -340,7 +340,7 @@ def test_model(model, test_batches, transformed_dataset):
         current_avg_loss = sum(losses) / len(losses)
         tqdm_bar.set_postfix(ср_потери=f"{current_avg_loss:.4f}", потери=f"{loss:.4f}")
     avg_loss = sum(losses) / len(losses)
-    print(f"Средняя ощибка: {avg_loss:.6f}")
+    print(f"Средняя ошибка: {avg_loss:.6f}")
     return avg_loss, losses
 
 
