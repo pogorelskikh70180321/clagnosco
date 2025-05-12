@@ -7,10 +7,14 @@ from torchvision import transforms
 import random
 
 
+# Устройство (CPU или GPU)
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 class ClagnoscoDataset(torch.utils.data.Dataset):
+    '''
+    Класс для загрузки изображений.
+    '''
     def __init__(self):
         self.base_dir = r"C:\!project-dataset"
         metadata_path = os.path.join(self.base_dir, "metadata.csv")
@@ -122,7 +126,7 @@ class ClagnoscoDataset(torch.utils.data.Dataset):
 
 class TransformedClagnoscoDataset(torch.utils.data.Dataset):
     '''
-    Трансформация изображения в тензоры.
+    Изображения преобразованные в тензоры.
     '''
     def __init__(self, dataset, transform=None):
         self.dataset = dataset
