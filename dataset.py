@@ -28,8 +28,8 @@ class ClagnoscoDataset(torch.utils.data.Dataset):
         # caption_path = os.path.join(self.base_dir, 'captions', f"{uid}.txt")
         # embedding_path = os.path.join(self.base_dir, 'captions_emb', f"{uid}.npy")
 
-        image = Image.open(image_resize_path).convert('RGB')
-        image_square = Image.open(image_square_path).convert('RGB')
+        image = Image.open(image_resize_path)
+        image_square = Image.open(image_square_path)
         # with open(caption_path, 'r', encoding='utf-8') as f:
         #     caption = f.read()
         # embedding = np.load(embedding_path)
@@ -59,11 +59,10 @@ class ClagnoscoDataset(torch.utils.data.Dataset):
     
     def random_splitting_batching_buckets(self, percent=0.75, seed=42, batch_size=-1, max_batch_size=32):
         '''
-        Splitting into train/test parts. 0 and 1 percent actually work.
+        Расщепление на тренировочной и тестовой выборки с батчами. 0 и 1 на самом деле работают.
         
-        batch_size = -1 -- Automatic harmonic mean (default)
-        
-        batch_size = 0  -- No batches
+        - batch_size = -1 -- Автоматическое гармоническое среднее (по умолчанию)
+        - batch_size = 0  -- Без батчей
         '''
         bucket_count = [i[1] for i in self.bucket_count]
 
@@ -131,7 +130,7 @@ class TransformedClagnoscoDataset(torch.utils.data.Dataset):
             ])
         else:
             self.transform = transform
-        
+    
     def __len__(self):
         return len(self.dataset)
     
