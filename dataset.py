@@ -25,14 +25,9 @@ class ClagnoscoDataset(torch.utils.data.Dataset):
         uid = self.data.loc[idx, 'uid']
         image_resize_path = os.path.join(self.base_dir, 'images_resize', f"{uid}.jpg")
         image_square_path = os.path.join(self.base_dir, 'images_square', f"{uid}.jpg")
-        # caption_path = os.path.join(self.base_dir, 'captions', f"{uid}.txt")
-        # embedding_path = os.path.join(self.base_dir, 'captions_emb', f"{uid}.npy")
 
         image = Image.open(image_resize_path)
         image_square = Image.open(image_square_path)
-        # with open(caption_path, 'r', encoding='utf-8') as f:
-        #     caption = f.read()
-        # embedding = np.load(embedding_path)
 
         return {
             'uid': uid,
@@ -40,11 +35,12 @@ class ClagnoscoDataset(torch.utils.data.Dataset):
             'image_width': self.data.loc[idx, 'image_width'],
             'image_height': self.data.loc[idx, 'image_height'],
             'image_square': image_square,
-            # 'caption': caption,
-            # 'embedding': torch.tensor(embedding, dtype=torch.float32)
         }
     
     def bucketize(self):
+        '''
+        Разделение на бакеты по разрешению изображения.
+        '''
         buckets = dict()
         for idx, row in self.data.iterrows():
             key = (row['image_width'], row['image_height'])
@@ -55,14 +51,17 @@ class ClagnoscoDataset(torch.utils.data.Dataset):
         return buckets
     
     def bucket_counting(self):
+        '''
+        Подсчет количества изображений в каждом бакете.
+        '''
         return sorted([(i, len(j)) for i, j in self.buckets.items()], key=lambda x: -x[1])
     
     def random_splitting_batching_buckets(self, percent=0.75, seed=42, batch_size=-1, max_batch_size=32):
         '''
-        Расщепление на тренировочной и тестовой выборки с батчами. 0 и 1 на самом деле работают.
+        Разделение на 2 выборки (тренировочную и тестовую) с батчами. 0 и 1 на самом деле работают.
         
-        - batch_size = -1 -- Автоматическое гармоническое среднее (по умолчанию)
-        - batch_size = 0  -- Без батчей
+        - batch_size = -1 -- Размер бытча: Автоматическое гармоническое среднее (по умолчанию)
+        - batch_size = 0  -- Размер бытча: Без батчей
         '''
         bucket_count = [i[1] for i in self.bucket_count]
 
@@ -122,6 +121,9 @@ class ClagnoscoDataset(torch.utils.data.Dataset):
 
 
 class TransformedClagnoscoDataset(torch.utils.data.Dataset):
+    '''
+    Трансформация изображения в тензоры.
+    '''
     def __init__(self, dataset, transform=None):
         self.dataset = dataset
         if transform is None:
@@ -137,34 +139,27 @@ class TransformedClagnoscoDataset(torch.utils.data.Dataset):
     def __getitem__(self, idx):
         item = self.dataset[idx]
         
-        # Apply transform to convert to tensor
+        # Использование ToTensor() для преобразования в тензор
         if self.transform:
             item['image'] = self.transform(item['image'])
             item['image_square'] = self.transform(item['image_square'])
         
-        # Calculate aspect ratio for the model
-        # ratio = torch.tensor([item['image_width'] / item['image_height']], dtype=torch.float32).to(DEVICE)
-        
-        # return item, ratio
         return item
 
 
 def iterate_batched_buckets(transformed_dataset, batched_buckets):
     """
-    Inputs:
-        - transformed_dataset: instance of TransformedClagnoscoDataset
-        - batched_buckets: list of [(width, height), [idx1, idx2, ...]] batches
-    Yields:
-        - batch: dict of batch elements (image, caption, etc.)
-        # - ratios: tensor of aspect ratios
-        - resolution: (width, height)
+    Входные данные:
+        - transformed_dataset: экземпляр TransformedClagnoscoDataset
+        - batched_buckets: список [(ширина, высота), [idx1, idx2, ...]] батчей
+    
+    Выходные данные (yield):
+        - batch: словарь элементов батча
+        - resolution: (ширина, высота)
     """
     for resolution, index_batch in batched_buckets:
-        batch_items = [transformed_dataset[i] for i in index_batch]  # Each is (item_dict, ratio_tensor)
+        batch_items = [transformed_dataset[i] for i in index_batch]
 
-        # items, ratios = zip(*batch_items)
-
-        # Manually stack tensors
         batch = {}
         for key in batch_items[0]:
             values = [item[key] for item in batch_items]
@@ -172,26 +167,17 @@ def iterate_batched_buckets(transformed_dataset, batched_buckets):
                 try:
                     batch[key] = torch.stack(values)
                 except Exception:
-                    batch[key] = values  # for irregular shapes
+                    batch[key] = values
             else:
                 batch[key] = values
 
-        # yield batch, torch.stack(ratios), resolution
         yield batch, resolution
 
 def batch_buckets_to_list(batches):
     """
-    Convert batches of buckets to a list.
+    Преобразует батчи в список индексов.
     """
     list_idxs = []
     for batch in [i[1] for i in batches]:
         list_idxs.extend(batch)
     return list_idxs
-
-
-if __name__ == "__main__":
-    ds = ClagnoscoDataset()
-    tds = TransformedClagnoscoDataset(ds)
-    # bucket_count = ds.bucket_count
-    # item['image']
-    print(tds[0])
