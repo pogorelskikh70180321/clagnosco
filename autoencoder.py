@@ -310,6 +310,32 @@ def open_image(img):
         raise ValueError("Input must be URL, local path, or PIL.Image")
 
 
+def standardize_image_size(img, resize_size=192):
+    """
+    Привести изображение к стандартному размеру для модели.
+
+    Аргументы:
+        image: PIL.Image
+        resize_size: int (по умолчанию 192 - минимальный размер стороны)
+
+    Возвращает:
+        PIL.Image
+    """
+    width, height = img.size
+    if min(width, height) == resize_size:
+        return img
+
+    if width < height:
+        new_width = resize_size
+        new_height = int((resize_size / width) * height)
+    else:
+        new_height = resize_size
+        new_width = int((resize_size / height) * width)
+    new_size = new_width, new_height
+
+    return img.resize(new_size, Image.LANCZOS)
+
+
 def run_image_through_autoencoder(model, input_image, decode=True):
     """
     Пропустить изображение через автоэнкодер ClagnoscoAutoencoder и вернуть восстановленное изображение (PIL) и латентный вектор.
@@ -322,7 +348,7 @@ def run_image_through_autoencoder(model, input_image, decode=True):
     Возвращает:
         restored_pil (PIL.Image), latent (Tensor), embedding (Tensor)
     """
-    input_image = open_image(input_image)
+    input_image = standardize_image_size(open_image(input_image))
 
     transform = transforms.Compose([
         transforms.ToTensor(),
