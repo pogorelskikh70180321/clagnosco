@@ -8,6 +8,7 @@ from datetime import datetime
 import os
 import requests
 import tempfile
+# from torchmetrics.image import StructuralSimilarityIndexMeasure
 if __name__ == "__main__":
     from tqdm import tqdm
 else:
@@ -31,12 +32,12 @@ class ClagnoscoEncoder(nn.Module):
     '''
     Вход: Тензорные изображения в батче (B, 3, H, W)
 
-    Выход: Латентные векторы в батче (B, 4096)
+    Выход: Латентные векторы в батче (B, 512) # 512*16
     '''
     def __init__(
         self,
-        latent_dim=4096,
-        backbone_channels=1024,
+        latent_dim=512,
+        backbone_channels=512,
         negative_slope=0.01
     ):
         super().__init__()
@@ -59,9 +60,9 @@ class ClagnoscoEncoder(nn.Module):
         self.pool = nn.AdaptiveAvgPool2d((4, 4))  # Output: (B, backbone_channels, 4, 4)
 
         self.lin = nn.Sequential(
-            nn.Linear(backbone_channels * 4 * 4, backbone_channels),
+            nn.Linear(backbone_channels * 4 * 4, backbone_channels * 4),
             nn.LeakyReLU(negative_slope, inplace=True),
-            nn.Linear(backbone_channels, latent_dim),
+            nn.Linear(backbone_channels * 4, latent_dim),
         )
 
     def forward(self, x):
@@ -74,32 +75,32 @@ class ClagnoscoEncoder(nn.Module):
 
 class ClagnoscoDecoder(nn.Module):
     '''
-    Вход: Латентные векторы в батче (B, 4096)
+    Вход: Латентные векторы в батче (B, 512)
     Выход: Восстановленные квадратные тензорные изображения в батче (B, 3, 256, 256)
     '''
-    def __init__(self, latent_dim=4096, image_res=256, negative_slope=0.01):
+    def __init__(self, latent_dim=512, image_res=256, negative_slope=0.01):
         super().__init__()
         self.init_size = image_res // 32
 
         self.lin = nn.Sequential(
-            nn.Linear(latent_dim, latent_dim),
+            nn.Linear(latent_dim, latent_dim*8),
             nn.LeakyReLU(negative_slope, inplace=True),
         )
 
-        self.decoder = nn.Sequential(
-            nn.ConvTranspose2d(latent_dim, 256, kernel_size=self.init_size, stride=1),  # 1×1 → init_size×init_size
+        self.convt = nn.Sequential(
+            nn.ConvTranspose2d(latent_dim*8, 256, kernel_size=self.init_size, stride=1),  # 1x1 → init_size x init_size
             nn.LeakyReLU(negative_slope, inplace=True),
 
-            nn.ConvTranspose2d(256, 128, kernel_size=4, stride=2, padding=1),  # 8→16
+            nn.ConvTranspose2d(256, 128, kernel_size=4, stride=2, padding=1),  # 8 -> 16
             nn.LeakyReLU(negative_slope, inplace=True),
 
-            nn.ConvTranspose2d(128, 64, kernel_size=4, stride=2, padding=1),   # 16→32
+            nn.ConvTranspose2d(128, 64, kernel_size=4, stride=2, padding=1),   # 16 -> 32
             nn.LeakyReLU(negative_slope, inplace=True),
 
-            nn.ConvTranspose2d(64, 32, kernel_size=4, stride=2, padding=1),    # 32→64
+            nn.ConvTranspose2d(64, 32, kernel_size=4, stride=2, padding=1),    # 32 -> 64
             nn.LeakyReLU(negative_slope, inplace=True),
 
-            nn.ConvTranspose2d(32, 3, kernel_size=4, stride=2, padding=1),     # 64→128
+            nn.ConvTranspose2d(32, 3, kernel_size=4, stride=2, padding=1),     # 64 -> 128
             nn.Sigmoid()
         )
 
@@ -108,8 +109,8 @@ class ClagnoscoDecoder(nn.Module):
         latent: [B, latent_dim]
         """
         x = torch.cat([latent], dim=1)                         # [B, latent_dim]
-        lined = self.lin(x)                                    # [B, latent_dim]
-        img = self.decoder(lined.unsqueeze(-1).unsqueeze(-1))  # [B, latent_dim, 1, 1]
+        lined = self.lin(x)                                    # [B, latent_dim * 16]
+        img = self.convt(lined.unsqueeze(-1).unsqueeze(-1))    # [B, latent_dim * 16, 1, 1]
         return img                                             # [B, 3, 256, 256]
 
 
@@ -124,8 +125,8 @@ class ClagnoscoAutoencoder(nn.Module):
     '''
     def __init__(
         self,
-        latent_dim=4096,
-        backbone_channels=1024,
+        latent_dim=512,
+        backbone_channels=512,
         image_res=512,
         negative_slope=0.01
     ):
@@ -141,13 +142,16 @@ class ClagnoscoAutoencoder(nn.Module):
             negative_slope=negative_slope
         )
 
-    def forward(self, x):
+    def forward(self, x, decode=True):
         """
         x:     [B, 3, H, W] картинки
         """
         latent = self.encoder(x)
-        recon = self.decoder(latent)
-        return latent, recon
+        if decode:
+            recon = self.decoder(latent)
+            return latent, recon
+        else:
+            return latent, None
 
 
 def download_and_load_model(url, delete_temp=True):
@@ -173,7 +177,7 @@ def download_and_load_model(url, delete_temp=True):
 
 def model_loader(model=None, first_epoch=0):
     '''
-    - model: модель для загрузки (по умолчанию None, что загружает последнюю модель; создаёт новую модель при "create"; при URL загружает модель из интернета)
+    - model: модель для загрузки (по умолчанию None, что загружает последнюю модель; создаёт новую модель при "create"; при директории загружает модель из файла; при URL загружает модель из интернета)
     - first_epoch: номер первой эпохи (по умолчанию 0, что означает первую эпоху)
     '''
     if model == "" or model is None:
@@ -224,9 +228,25 @@ def train_autoencoder(transformed_dataset, train_batches, model=None,
         - model: обученная модель автоэнкодера
         - loss log: файл лога с значениями потерь для каждого шага
     """
+    if first_epoch < 0:
+        first_epoch = 0
     model, first_epoch = model_loader(model=model, first_epoch=first_epoch)
     model.train()
     model.to(DEVICE)
+
+    # # Критерии потерь: MSE + SSIM
+    # # MSELoss и StructuralSimilarityIndexMeasure из torchmetrics
+    # mse_loss = nn.MSELoss()
+    # ssim_metric = StructuralSimilarityIndexMeasure(data_range=1.0).to(DEVICE)
+
+    # ssim_metric_weight = 1/16
+    # mse_loss_weight = 1 - ssim_metric_weight
+
+    # def criterion(pred, target):
+    #     mse = mse_loss(pred, target)
+    #     ssim = ssim_metric(pred, target)
+    #     combined_loss = mse * mse_loss_weight + (1 - ssim) * ssim_metric_weight
+    #     return combined_loss
 
     criterion = nn.MSELoss()
 
@@ -290,13 +310,14 @@ def open_image(img):
         raise ValueError("Input must be URL, local path, or PIL.Image")
 
 
-def run_image_through_autoencoder(model, input_image):
+def run_image_through_autoencoder(model, input_image, decode=True):
     """
     Пропустить изображение через автоэнкодер ClagnoscoAutoencoder и вернуть восстановленное изображение (PIL) и латентный вектор.
 
     Аргументы:
         input_image: PIL.Image или str (путь или URL)
         model: ClagnoscoAutoencoder
+        decode: bool (по умолчанию True - восстанавливать изображение из латентного вектора)
 
     Возвращает:
         restored_pil (PIL.Image), latent (Tensor), embedding (Tensor)
@@ -312,12 +333,15 @@ def run_image_through_autoencoder(model, input_image):
     model.eval()
     model.to(DEVICE)
     with torch.no_grad():
-        latent, recon = model(input_tensor)
+        latent, recon = model(input_tensor, decode=decode)
 
-    restored_tensor = recon.squeeze(0).cpu().clamp(0, 1)  # [3, H, W]
-    restored_pil = transforms.ToPILImage()(restored_tensor)
+    if decode:
+        restored_tensor = recon.squeeze(0).cpu().clamp(0, 1)  # [3, H, W]
+        restored_pil = transforms.ToPILImage()(restored_tensor)
 
-    return latent.squeeze(0), restored_pil
+        return latent.squeeze(0), restored_pil
+    else:
+        return latent.squeeze(0), None
 
 
 def test_model(model, test_batches, transformed_dataset):
@@ -396,3 +420,33 @@ def delete_untrained_loss_log_files():
                 print(f"Удалён файл лога потерь: {file_path}")
             except Exception as e:
                 print(f"Ошибка при удалении файла {file_path}: {e}")
+
+
+def images_to_latent(image_folder, model=None):
+    """
+    Преобразование изображений из папки в латентные векторы с помощью модели автоэнкодера.
+    Аргументы:
+        image_folder: str (путь к папке с изображениями)
+        model: ClagnoscoAutoencoder или str (путь к модели или URL)
+    Возвращает:
+        images_and_latents: список кортежей (путь к изображению, латентный вектор)
+        errored_images: список изображений, которые не удалось обработать
+    """
+    
+    if not os.path.exists(image_folder):
+        raise FileNotFoundError(f"Папка с изображениями не найдена: {image_folder}")
+    
+    model, _ = model_loader(model=model)
+    model.to(DEVICE)
+
+    images_and_latents = []
+    errored_images = []
+    for filename in os.listdir(image_folder):
+        try:
+            image_path = os.path.join(image_folder, filename)
+            latent, _ = run_image_through_autoencoder(model, image_path, decode=False)
+            images_and_latents.append((filename, latent.cpu()))
+        except Exception as e:
+            errored_images.append(filename)
+    
+    return images_and_latents, errored_images
