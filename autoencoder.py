@@ -448,15 +448,16 @@ def delete_untrained_loss_log_files():
                 print(f"Ошибка при удалении файла {file_path}: {e}")
 
 
-def images_to_latent(image_folder, model=None):
+def images_to_latent(image_folder, model=None, cashing=False):
     """
     Преобразование изображений из папки в латентные векторы с помощью модели автоэнкодера.
     Аргументы:
         image_folder: str (путь к папке с изображениями)
-        model: ClagnoscoAutoencoder или str (путь к модели или URL)
+        model: ClagnoscoAutoencoder или str (сама модель, путь к модели или URL)
+        cashing: bool (по умолчанию False) - кэшировать и использовать латентные векторы в файлах _latent.npy)
     Возвращает:
         images_and_latents: список кортежей (путь к изображению, латентный вектор)
-        errored_images: список изображений, которые не удалось обработать
+        errored_images: список изображений, которых не получилось обработать
     """
     
     if not os.path.exists(image_folder):
@@ -469,10 +470,36 @@ def images_to_latent(image_folder, model=None):
     errored_images = []
     for filename in os.listdir(image_folder):
         try:
+            if cashing:
+                latent_path = os.path.join(image_folder, filename + "_latent.npy")
+                if os.path.exists(latent_path):
+                    latent = np.load(latent_path)
+                    images_and_latents.append((filename, latent))
+                    continue
             image_path = os.path.join(image_folder, filename)
             latent, _ = run_image_through_autoencoder(model, image_path, decode=False)
-            images_and_latents.append((filename, latent.cpu()))
+            images_and_latents.append((filename, latent.cpu().numpy()))
+            if cashing:
+                np.save(latent_path, latent.cpu().numpy())
         except Exception as e:
-            errored_images.append(filename)
+            if not filename.endswith("_latent.npy"):
+                errored_images.append(filename)
     
     return images_and_latents, errored_images
+
+def clear_cash(image_folder):
+    """
+    Очистка кэша латентных векторов в папке с изображениями.
+    Аргументы:
+        image_folder: str (путь к папке с изображениями)
+    Возвращает:
+        count: int - количество удалённых файлов кэша
+    """
+    if not os.path.exists(image_folder):
+        raise FileNotFoundError(f"Папка с изображениями не найдена: {image_folder}")
+    count = 0
+    for filename in os.listdir(image_folder):
+        if filename.endswith("_latent.npy"):
+            os.remove(os.path.join(image_folder, filename))
+            count += 1
+    return count
