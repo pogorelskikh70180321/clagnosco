@@ -393,7 +393,7 @@ def test_model(model, test_batches, transformed_dataset):
         test_image = sample['image'].unsqueeze(0).to(DEVICE)
         test_image_square = sample['image_square'].unsqueeze(0).to(DEVICE)
         with torch.no_grad():
-            latent, recon = model(test_image)
+            _, recon = model(test_image)
             loss = F.mse_loss(recon, test_image_square).item()
         losses.append(loss)
         current_avg_loss = sum(losses) / len(losses)
@@ -448,16 +448,18 @@ def delete_untrained_loss_log_files():
                 print(f"Ошибка при удалении файла {file_path}: {e}")
 
 
-def images_to_latent(image_folder, model=None, cashing=False):
+def images_to_latent(image_folder, model=None, cashing=False, ignore_errors=True):
     """
     Преобразование изображений из папки в латентные векторы с помощью модели автоэнкодера.
     Аргументы:
         image_folder: str (путь к папке с изображениями)
         model: ClagnoscoAutoencoder или str (сама модель, путь к модели или URL)
         cashing: bool (по умолчанию False) - кэшировать и использовать латентные векторы в файлах _latent.npy)
+        ignore_errors: bool (по умолчанию True) - ингорировать файлы с ошибками
     Возвращает:
         images_and_latents: список кортежей (путь к изображению, латентный вектор)
         errored_images: список изображений, которых не получилось обработать
+        status: bool - если False, то возникла ошибка и процесс преобразования прервался
     """
     
     if not os.path.exists(image_folder):
@@ -484,8 +486,10 @@ def images_to_latent(image_folder, model=None, cashing=False):
         except Exception as e:
             if not filename.endswith("_latent.npy"):
                 errored_images.append(filename)
+                if not ignore_errors:
+                    return images_and_latents, errored_images, False
     
-    return images_and_latents, errored_images
+    return images_and_latents, errored_images, True
 
 def clear_cash(image_folder):
     """
