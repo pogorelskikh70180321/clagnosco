@@ -24,8 +24,9 @@ else:
 #  Учебная группа: ИД 23.3/Б3-21
 
 
-# Папка для сохранения моделей
+# Папка для сохранения моделей и модель на Hugging Face
 SAVE_FOLDER = "models/"
+HF_MODEL_DOWNLOAD_LINK = 'https://huggingface.co/pogorzelskich/clagnosco_2025-05-11/resolve/main/model.pt?download=true'
 
 
 class ClagnoscoEncoder(nn.Module):
@@ -183,8 +184,13 @@ def model_loader(model=None, first_epoch=0):
     if model == "" or model is None:
         # Поиск последней модели в папке сохранений
         model_filenames = sorted([f for f in os.listdir(SAVE_FOLDER) if f.endswith('.pt')])
+        if len(model_filenames) == 0:
+            return model_loader(model=HF_MODEL_DOWNLOAD_LINK)
         model_filename = model_filenames[-1]
-        first_epoch = int(model_filename.split('_')[4].split(".")[0])
+        try:
+            first_epoch = int(model_filename.split('_')[4].split(".")[0])
+        except:
+            first_epoch = -1
         model = ClagnoscoAutoencoder()
         model.load_state_dict(torch.load(SAVE_FOLDER+model_filename))
         print(f"Загружена последняя модель: {model_filename}")
@@ -197,7 +203,7 @@ def model_loader(model=None, first_epoch=0):
             model = ClagnoscoAutoencoder()
         elif model.startswith("http"):
             # Загрузка модели из URL
-            print(f"Загрузка модели из URL")
+            print(f"Загрузка модели из URL...")
             model = download_and_load_model(model)
             first_epoch = -1
         else:
@@ -264,7 +270,7 @@ def train_autoencoder(transformed_dataset, train_batches, model=None,
             
             tqdm_bar = tqdm(range(len_train_batches), total=len_train_batches, desc=f"Эпоха {epoch+1}/{num_epochs}")
             for n, _ in enumerate(tqdm_bar):
-                batch_dict, resolution = next(batched_buckets_gen)
+                batch_dict, _ = next(batched_buckets_gen)
 
                 batch_imgs_inputs = batch_dict['image'].to(DEVICE)
                 batch_imgs_targets = batch_dict['image_square'].to(DEVICE)
