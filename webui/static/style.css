@@ -51,6 +51,18 @@ html, body {
     gap: 6px;
 }
 
+.project-name-text::before {
+    background-image: url('/static/svg/clagnosco.svg');
+    width: 40px;
+    height: 40px;
+    margin-right: 4px;
+    content: "";
+    display: inline-block;
+    vertical-align: middle;
+    background-size: contain;
+    background-repeat: no-repeat;
+}
+
 .init-tab input[type="text"],
 .init-tab select {
     padding: 4px;
