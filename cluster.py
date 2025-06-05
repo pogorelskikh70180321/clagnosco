@@ -27,7 +27,7 @@ def determine_optimal_clusters_elbow(latents: np.ndarray, max_k: int = 50) -> in
     return max(2, optimal_k)
 
 def cluster_latent_vectors(images_and_latents: List[Tuple[str, np.ndarray]]) -> \
-        Dict[int, Tuple[str, Tuple[Tuple[str, float, bool], ...]]]:
+        Tuple[str, Tuple[Tuple[str, float, bool], ...]]:
     """
     Кластеризовать латентные векторы с использованием метода адаптивного расстояния с запеченными параметрами.
     
@@ -35,7 +35,7 @@ def cluster_latent_vectors(images_and_latents: List[Tuple[str, np.ndarray]]) -> 
         images_and_latents: Список из кортежей (имя файла, латентный вектор)
     
     Выходные данные:
-        Словарь по ключам -- ID кластера: (имя кластера, ((имя файла, вероятность, входит ли в кластер), ...))
+        Кластеры: (имя кластера, ((имя файла, вероятность, входит ли в кластер), ...))
     """
     
     # Разделение латентов и имён файлов
@@ -78,8 +78,8 @@ def cluster_latent_vectors(images_and_latents: List[Tuple[str, np.ndarray]]) -> 
         normalized_distances = (cluster_distances / threshold) ** 2
         probabilities[:, cluster_id] = np.exp(-normalized_distances / temperature)
     
-    # Организация кластеров (словарь)
-    clusters = {}
+    # Организация кластеров (список)
+    clusters = []
     for cluster_id in range(optimal_k):
         cluster_members = []
         cluster_probs = probabilities[:, cluster_id]
@@ -96,6 +96,6 @@ def cluster_latent_vectors(images_and_latents: List[Tuple[str, np.ndarray]]) -> 
         
         # Сопртировка по самым вероятным значениям
         cluster_members.sort(key=lambda x: -x[1])
-        clusters[cluster_id] = ("", tuple(cluster_members))  # Имя (пустое) и расчёты
+        clusters.append(("", tuple(cluster_members)))  # Имя (пустое) и расчёты
     
     return clusters
