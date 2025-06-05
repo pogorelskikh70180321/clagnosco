@@ -1,44 +1,144 @@
-var isProcessing = false;
+function showCustomAlert(message, timeout=5000) {
+    const alertBox = document.getElementById("custom-alert");
+    alertBox.textContent = message;
+    alertBox.classList.add("show");
 
-
-function sendToServer(instruction="") {
-
-
-    // var fullInstruction = {command: ''};
-    // var sendingType = "give";
-    // if (instruction === "") {
-    //     console.log("Попытка отправки пустой инструкции.");
-    //     return null;
-    
-    // } else if (instruction === "launchProceccing") {
-    //     fullInstruction['command'] = 'launchProceccing';
-    //     fullInstruction['clagnoscoClassID'] = extra['clagnoscoClassID'];
-
-    // } else if (instruction === "getClagnoscoClasses") {
-    //     fullInstruction['command'] = 'getClagnoscoClasses';
-    //     sendingType = 'receive';
-
-    // } else if (instruction === "getImages") {
-    //     fullInstruction['command'] = 'getImages';
-    //     sendingType = 'receive';
-
-    // } else if (instruction === "creatingEmptyClagnoscoClass") {
-    //     fullInstruction['command'] = 'creatingEmptyClagnoscoClass';
-    
-    // } else if (instruction === "copyingClagnoscoClass") {
-    //     fullInstruction['command'] = 'copyingClagnoscoClass';
-    //     fullInstruction['clagnoscoClassID'] = extra['clagnoscoClassID'];
-    // }
+    setTimeout(() => {
+        alertBox.classList.remove("show");
+    }, timeout);
 }
 
-function launchProceccing() {
-    folder = document.getElementById("localFolder").textContent;
-    model = document.getElementById("modelSelect").value;
-    cashing = document.getElementById("cashing").checked;
-    instruction = {'command': 'launchProceccing', 'folder': folder, 'model': model, 'cashing': cashing};
-    isProcessing = true;
-    sendToServer(instruction);
+async function sendToServer(data) {
+    try {
+        const response = await fetch('/fetch', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        });
+
+        if (!response.ok) {
+            throw new Error('Нет ответа');
+        }
+
+        return await response.json();
+    } catch (error) {
+        console.error('Ошибка:', error);
+        return { error: error.message };
+    }
 }
+
+function resetAll() {
+    let imgDir = document.getElementById("localFolder");
+    let modelName = document.getElementById("modelNameSelect");
+    let cashing = document.getElementById("cashing");
+
+    imgDir.disabled = false;
+    modelName.disabled = false;  
+    cashing.disabled = false;
+
+
+    let menuStatusInit = document.getElementById("menuStatusInit");
+    let menuStatusProcessing = document.getElementById("menuStatusProcessing");
+    let menuStatusDone = document.getElementById("menuStatusDone");
+    
+    menuStatusInit.classList.remove("hidden");
+    menuStatusProcessing.classList.add("hidden");
+    menuStatusDone.classList.add("hidden");
+}
+
+
+function launchProcessing() {
+    let imgDir = document.getElementById("localFolder");
+    let modelName = document.getElementById("modelNameSelect");
+    let cashing = document.getElementById("cashing");
+    let instruction = {'command': 'launchProcessing',
+                       'imgDir': imgDir.value,
+                       'modelName': modelName.value,
+                       'cashing': cashing.checked};
+    imgDir.disabled = true;
+    modelName.disabled = true;  
+    cashing.disabled = true;
+
+    let menuStatusInit = document.getElementById("menuStatusInit");
+    let menuStatusProcessing = document.getElementById("menuStatusProcessing");
+    let menuStatusDone = document.getElementById("menuStatusDone");
+    
+    if (modelName.value == "download") {
+        menuStatusProcessing.children[1].textContent = "Загрузка модели из интернета...";
+    } else {
+        menuStatusProcessing.children[1].textContent = "Загрузка модели...";
+    }
+
+    menuStatusInit.classList.add("hidden");
+    menuStatusProcessing.classList.remove("hidden");
+    menuStatusDone.classList.add("hidden");
+
+    sendToServer(instruction).then(answer => {
+        console.log("Ответ:", answer);
+
+        if (answer["status"] === "readyToCluster") {
+            clusterImages();
+        } else if (answer["status"] === "error") {
+            alert(answer["message"]);
+            
+            resetAll();
+        } else {
+            // alert("Странный ответ сервера.");
+            resetAll();
+        }
+    }).catch(error => {
+        console.error("Ошибка обработки запроса:", error);
+        resetAll();
+    });
+}
+
+var clagnoscoClasses = [];
+var clagnoscoImagesNames = [];
+
+function clusterImages(imagesCount=-1) {
+    let menuStatusProcessingText = document.getElementById("menuStatusProcessing").children[1];
+    if (imagesCount === -1) {
+        menuStatusProcessingText.textContent = "Обработка изображений...";
+    } else {
+        menuStatusProcessingText.textContent = `Обработка изображений (${imagesCount})...`;
+    }
+
+    let instruction = {'command': 'clusterImages'};
+    
+    sendToServer(instruction).then(answer => {
+        console.log("Ответ:", answer);
+
+        if (answer["status"] === "readyToPopulate") {
+            // alert("Processing launched successfully.");
+            // console.log(answer);
+            
+            clagnoscoClassSizes = answer["classSizes"];
+            clagnoscoImagesNames = answer["imagesNames"];
+            
+            menuStatusProcessingText.textContent = "Распределение кластеров...";
+
+            showCustomAlert(`Все изображения обработаны (${clagnoscoImagesNames.length}). Было найдено данное количество кластеров: ${clagnoscoClassSizes.length}`);
+
+        } else if (answer["status"] === "error") {
+            alert(answer["message"]);
+            resetAll();
+        } else {
+            // alert("Странный ответ сервера.");
+            resetAll();
+        }
+    }).catch(error => {
+        console.error("Ошибка обработки запроса:", error);
+        resetAll();
+    });
+}
+
+function populate() {
+    clagnoscoClasses = population["classes"];
+    clagnoscoImages = population["images"];
+}
+
 
 function bracketsRemoval(text) {
     return text.split("(")[1].split(")")[0];

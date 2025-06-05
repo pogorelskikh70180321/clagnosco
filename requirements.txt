@@ -6,3 +6,4 @@ pandas
 requests
 tqdm
 scikit-learn
+flask

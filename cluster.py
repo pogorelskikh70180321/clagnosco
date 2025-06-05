@@ -91,7 +91,7 @@ def cluster_latent_vectors(images_and_latents: List[Tuple[str, np.ndarray]]) -> 
         
         for i, filename in enumerate(filenames):
             prob = float(cluster_probs[i])
-            is_member = prob >= prob_threshold
+            is_member = bool(prob >= prob_threshold)
             cluster_members.append((filename, prob, is_member))
         
         # Сопртировка по самым вероятным значениям

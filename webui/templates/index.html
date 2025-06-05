@@ -10,6 +10,9 @@
     <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='svg/clagnosco.svg') }}">
 </head>
 <body>
+    <div id="custom-alert" class="custom-alert">
+    ...
+    </div>
     <div class="container">
         <div class="menu-tab">
             <div class="init-tab">
@@ -19,11 +22,11 @@
                         window.open('https://github.com/', '_blank')"
                     "></button>
                 </div>
-                <input type="text" id="localFolder" placeholder="Введите путь к папке с изображениями" />
+                <input type="text" id="localFolder" placeholder="Введите путь к папке с изображениями" value="C:\!project-dataset\z_images_small"/>
 
-                <select id="modelSelect">
+                <select id="modelNameSelect">
                     <option value="model.pt">model.pt</option>
-                    <option value="download">model.pt (загрузка модели из интернета)</option>
+                    <option value="download">model.pt (временная загрузка модели из интернета без сохранения)</option>
                 </select>
 
                 <div class="checkbox">
@@ -31,20 +34,20 @@
                     <label for="cashing">Кэшировать латентные векторы</label>
                 </div>
 
-                <div class="init-button-area">
+                <div class="init-button-area" id="menuStatusInit">
                     <button class="init-btn-clear-cash" id="initButtonClearCash">Очистить кэш</button>
-                    <button class="init-btn-process" id="initButtonProcess">Обработать</button>
+                    <button class="init-btn-process" id="initButtonProcess" onclick="launchProcessing();">Обработать</button>
                 </div>
 
-                <!-- <div class="status-bar processing" id="statusBar">
+                <div class="status-bar processing hidden" id="menuStatusProcessing">
                     <div class="status-fill"></div>
-                    <span>Обработка изображений</span>
-                </div> -->
+                    <span>Загрузка модели</span>
+                </div>
                 
-                <!-- <div class="init-button-area">
+                <div class="init-button-area hidden" id="menuStatusDone">
                     <button class="init-btn-reset" id="initButtonReset">Сбросить</button>
                     <button class="init-btn-save" id="initButtonSave">Сохранить</button>
-                </div> -->
+                </div>
                 
             </div>
             <div class="classes-tab">
