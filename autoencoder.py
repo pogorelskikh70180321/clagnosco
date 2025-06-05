@@ -179,7 +179,7 @@ def download_and_load_model(url, delete_temp=True):
 
 def model_loader(model=None, first_epoch=0):
     '''
-    - model: модель для загрузки (по умолчанию None, что загружает последнюю модель; создаёт новую модель при "create"; при директории загружает модель из файла; при URL загружает модель из интернета)
+    - model: модель для загрузки (по умолчанию None, что загружает последнюю модель; создаёт новую модель при "create"; загрузка модели из Hugging Face при "download"; при директории загружает модель из файла; при URL загружает модель из интернета)
     - first_epoch: номер первой эпохи (по умолчанию 0, что означает первую эпоху)
     '''
     if model == "" or model is None:
@@ -202,6 +202,11 @@ def model_loader(model=None, first_epoch=0):
             print("Создание новой модели")
             first_epoch = 0
             model = ClagnoscoAutoencoder()
+        elif model.lower() == "download":
+            # Загрузка модели
+            print(f"Загрузка модели...")
+            model = download_and_load_model(HF_MODEL_DOWNLOAD_LINK)
+            first_epoch = -1
         elif model.startswith("http"):
             # Загрузка модели из URL
             print(f"Загрузка модели из URL...")
@@ -209,7 +214,10 @@ def model_loader(model=None, first_epoch=0):
             first_epoch = -1
         else:
             # Загрузка модели из string
-            first_epoch = int(model.split('_')[4].split(".")[0])
+            try:
+                first_epoch = int(model_filename.split('_')[4].split(".")[0])
+            except:
+                first_epoch = -1
             model_filename = model
             model = ClagnoscoAutoencoder()
             model.load_state_dict(torch.load(SAVE_FOLDER+model_filename))
