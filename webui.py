@@ -63,6 +63,8 @@ def fetch():
         result = image_probs_get(data)
     elif data['command'] == 'clearCache':
         result = clear_cache_webui(data)
+    elif data['command'] == 'modelsInFolder':
+        result = models_in_folder()
     return jsonify(result)
 
 def clear_cache_webui(data):
@@ -171,6 +173,16 @@ def image_probs_get(data):
 
     state.status = {"status": "imagesProbs",
                     "probs": state.img_clusters[data['id']][1],
+                    "time": time() - start_time
+                    }
+    return state.status
+
+def models_in_folder():
+    start_time = time()
+    state = app.state
+
+    state.status = {"status": "readyToInit",
+                    "modelNames": [f for f in os.listdir(SAVE_FOLDER) if f.endswith('.pt')],
                     "time": time() - start_time
                     }
     return state.status

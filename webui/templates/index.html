@@ -9,9 +9,12 @@
     <title>Clagnosco - Классификация изображений</title>
     <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='svg/clagnosco.svg') }}">
 </head>
-<body>
+<body onload="resetAll(confirmResetAll=false);">
     <div id="custom-alert" class="custom-alert">
     ...
+    </div>
+    <div class="fullscreen-loader">
+        <div class="rotating-image"></div>
     </div>
     <div class="container">
         <div class="menu-tab">
@@ -24,9 +27,9 @@
                 </div>
                 <input type="text" id="localFolder" placeholder="Введите путь к папке с изображениями" value="C:\!project-dataset\z_images_small"/>
 
+                <label class="init-tab-label">Модель</label>
                 <select id="modelNameSelect">
-                    <option value="model.pt">model.pt</option>
-                    <option value="download">model.pt (временная загрузка модели из интернета без сохранения)</option>
+                    <option value="download">model.pt (использование модели из интернета без сохранения на диск)</option>
                 </select>
 
                 <div class="checkbox">
@@ -45,7 +48,7 @@
                 </div>
                 
                 <div class="init-button-area hidden" id="menuStatusDone">
-                    <button class="init-btn-reset" id="initButtonReset">Сбросить</button>
+                    <button class="init-btn-reset" id="initButtonReset" onclick="resetAll();">Сбросить</button>
                     <button class="init-btn-save" id="initButtonSave">Сохранить</button>
                 </div>
                 

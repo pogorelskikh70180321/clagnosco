@@ -65,7 +65,18 @@ function clearCache(confirmClearingCache=true) {
     });
 }
 
-function resetAll() {
+function resetAll(confirmResetAll=true) {
+    if (confirmResetAll) {
+        const confirmStatus = window.confirm(`Сбросить всё?`);
+
+        if (!confirmStatus) {
+            return null;
+        }
+    }
+    
+    let loading = document.getElementsByClassName('fullscreen-loader')[0];
+    loading.classList.remove('hidden');
+
     let imgDir = document.getElementById("localFolder");
     let modelName = document.getElementById("modelNameSelect");
     let caching = document.getElementById("caching");
@@ -89,6 +100,14 @@ function resetAll() {
 
     clearImages();
     clearClagnoscoClasses();
+    populateModels();
+
+    document.getElementsByClassName('classes-tab')[0].classList.add('hidden');
+    document.getElementById('classTab').classList.add('hidden');
+
+
+
+    loading.classList.add('hidden');
 }
 
 
@@ -160,7 +179,7 @@ function clusterImages(imagesCount=-1) {
             
             menuStatusProcessingText.textContent = "Распределение кластеров...";
 
-            showCustomAlert(`Все изображения обработаны (${clagnoscoImagesNames.length}). Было найдено данное количество кластеров: ${clagnoscoClassesSizes.length}`);
+            showCustomAlert(`Все изображения обработаны (${clagnoscoImagesNames.length}). Было найдено следующее количество кластеров: ${clagnoscoClassesSizes.length}`);
             populateClagnoscoClasses();
             populateImages();
 
@@ -616,4 +635,44 @@ function imageProbsOrder() {
     }).catch(error => {
         console.error("Ошибка обработки запроса:", error);
     });
+}
+
+
+function clearModels() {
+    document.getElementById('modelNameSelect').innerHTML = '';
+}
+
+
+function populateModels(localModelsInclude=true, internetModelDownloadInclude=true) {
+    if (localModelsInclude || internetModelDownloadInclude) {
+        clearModels();
+    }
+
+    if (internetModelDownloadInclude) {
+        baseAddmodelTemplate();
+    }
+
+    if (localModelsInclude) {
+        let instruction = {'command': 'modelsInFolder'};
+
+        sendToServer(instruction).then(answer => {
+            console.log("Ответ:", answer);
+
+            if (answer["status"] === "readyToInit") {
+                let modelNames = answer["modelNames"];
+                for (let i = 0; i < modelNames.length; i++) {
+                    baseAddmodelTemplate(modelName=modelNames[i]);
+                }
+                let modelOptions = document.getElementById("modelNameSelect");
+                if (modelOptions.children.length > 1) {
+                    modelOptions.selectedIndex = 1;
+                }
+
+            } else {
+                // alert("Странный ответ сервера.");
+            }
+        }).catch(error => {
+            console.error("Ошибка обработки запроса:", error);
+        });
+    }
 }

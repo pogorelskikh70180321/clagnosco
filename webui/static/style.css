@@ -37,6 +37,37 @@ html, body {
     pointer-events: auto;
 }
 
+.fullscreen-loader {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: white;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+}
+
+.rotating-image {
+    min-width: 30vw;
+    min-height: 30vw;
+    max-width: 90vw;
+    max-height: 90vw;
+    width: auto;
+    height: auto;
+    background-image: url('/static/svg/loading.svg');
+    background-size: contain;
+    background-repeat: no-repeat;
+    animation: stepped-rotate 1s steps(12) infinite;
+}
+
+@keyframes stepped-rotate {
+    0%   { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
 .name-empty {
     font-style: italic;
 }
@@ -65,6 +96,10 @@ html, body {
   .menu-tab {
     width: 200px;
   }
+}
+
+.init-tab-label {
+    font-weight: bold;
 }
 
 .init-tab .project-name {

@@ -85,7 +85,7 @@ function imageContainerTemplate(imageSrc=undefined, imageName="Example", prob=0.
         div.querySelector('.image-meta-chance-checkbox').checked = true;
         div.classList.add('image-selected');
     }
-    
+
     return div;
 }
 
@@ -93,4 +93,21 @@ function baseAddImageContainerTemplate(imageSrc=undefined, imageName="Example", 
     let div = imageContainerTemplate(imageSrc=imageSrc, imageName=imageName, prob=prob, isMember=isMember);
     let classesListElement = document.getElementById('imagesTab');
     classesListElement.appendChild(div);
+}
+
+function modelTemplate(modelName="download") {
+    const option = document.createElement('option');
+    if (modelName === "download") {
+        option.textContent = 'model.pt (использование модели из интернета без сохранения на диск)';
+    } else {
+        option.textContent = modelName;
+    }
+    option.value = modelName;
+    return option
+}
+
+function baseAddmodelTemplate(modelName="download") {
+    let option = modelTemplate(modelName=modelName);
+    let modelsListElement = document.getElementById('modelNameSelect');
+    modelsListElement.appendChild(option);
 }
