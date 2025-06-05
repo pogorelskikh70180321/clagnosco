@@ -158,12 +158,12 @@ html, body {
     background-color: #00b009;
 }
 
-.init-btn-clear-cash {
+.init-btn-clear-cache {
     background-color: #8e79a8;
     color: white;
 }
 
-.init-btn-clear-cash:hover {
+.init-btn-clear-cache:hover {
     background-color: #514461;
 }
 

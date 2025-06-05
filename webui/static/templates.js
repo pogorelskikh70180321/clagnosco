@@ -46,12 +46,8 @@ function baseAddClagnoscoClassTemplate(nameText="", sizeText=0) {
     classesListElement.appendChild(div);
 }
 
-function populateClagnoscoClasses() {
 
-}
-
-
-function imageContainerTemplate(imageSrc=undefined, imageName="Example") {
+function imageContainerTemplate(imageSrc=undefined, imageName="Example", prob=0.0, isMember=false) {
     if (imageSrc === undefined) {
         imageSrc = pixelBase64;
     }
@@ -81,11 +77,20 @@ function imageContainerTemplate(imageSrc=undefined, imageName="Example") {
     metaNameDiv.textContent = imageName;
     metaNameDiv.title = `Открыть «${imageName}» в новой вкладке`;
 
+    const probDiv = div.querySelector('.image-meta-chance-value');
+    probDiv.title = prob;
+    probDiv.textContent = (prob * 100).toFixed(2) + '%';
+
+    if (isMember) {
+        div.querySelector('.image-meta-chance-checkbox').checked = true;
+        div.classList.add('image-selected');
+    }
+    
     return div;
 }
 
-function baseAddImageContainerTemplate(imageSrc=undefined, imageName="Example") {
-    let div = imageContainerTemplate(imageSrc=imageSrc, imageName=imageName);
+function baseAddImageContainerTemplate(imageSrc=undefined, imageName="Example", prob=0.0, isMember=false) {
+    let div = imageContainerTemplate(imageSrc=imageSrc, imageName=imageName, prob=prob, isMember=isMember);
     let classesListElement = document.getElementById('imagesTab');
     classesListElement.appendChild(div);
 }

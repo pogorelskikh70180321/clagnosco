@@ -16,7 +16,7 @@ class AppState:
         self.img_dir = None
         self.model_name = None
         self.model = None
-        self.cashing = True
+        self.caching = True
         self.img_names = []
         self.img_clusters = []
         self.status = {"status": "idle"}
@@ -59,38 +59,75 @@ def fetch():
         result = launch_processing(data)
     elif data['command'] == 'clusterImages':
         result = cluster_images()
+    elif data['command'] == 'imageProbsGet':
+        result = image_probs_get(data)
+    elif data['command'] == 'clearCache':
+        result = clear_cache_webui(data)
     return jsonify(result)
+
+def clear_cache_webui(data):
+    start_time = time()
+    state = app.state
+    try:
+        state.img_dir = data['imgDir'].strip('"')
+        
+        if state.img_dir[-1] not in ["\\", "/"]:
+            state.img_dir = state.img_dir + "\\"
+        clear_cache(state.img_dir)
+        state.status = {"status": "cacheCleared", "time": time() - start_time}
+        return state.status
+    except:
+        state.status = {
+            "status": "error",
+            "type": "Cache deletion issue",
+            "message": f"Возникла ошибка при удалении кэша",
+            "time": time() - start_time
+            }
+        return state.status
 
 
 def launch_processing(data):
     start_time = time()
     state = app.state
 
-    state.img_dir = data['imgDir'].strip('"')
-    if not os.path.isdir(state.img_dir):
-        state.status = {"status": "error",
-                        "type": "Local folder not found",
-                        "message": f"Папка \"{state.img_dir}\" не найдена"}
-        state.img_dir = None
+    try:
+        state.img_dir = data['imgDir'].strip('"')
+        if state.img_dir[-1] not in ["\\", "/"]:
+            state.img_dir = state.img_dir + "\\"
+        
+        if not os.path.isdir(state.img_dir):
+            state.status = {"status": "error",
+                            "type": "Local folder not found",
+                            "message": f"Папка \"{state.img_dir}\" не найдена"}
+            state.img_dir = None
+            return state.status
+
+        if data['modelName'] != state.model_name:
+            state.model_name = data['modelName']
+            if data['modelName'] == "download":
+                state.model, _ = model_loader("download")
+            else:
+                selected_model_dir = os.path.join(SAVE_FOLDER, data['modelName'])
+                if os.path.isfile(selected_model_dir):
+                    try:
+                        state.model, _ = model_loader(data['modelName'])
+                    except:
+                        return state_error_model_load(state, data['modelName'], start_time)
+                else:
+                    return state_error_model_load(state, data['modelName'], start_time)
+
+        state.caching = data['caching']
+        state.status = {"status": "readyToCluster", "time": time() - start_time}
+        return state.status
+    except:
+        state.status = {
+            "status": "error",
+            "type": "launch error",
+            "message": f"Ошибка запуска",
+            "time": time() - start_time
+            }
         return state.status
 
-    if data['modelName'] != state.model_name:
-        state.model_name = data['modelName']
-        if data['modelName'] == "download":
-            state.model, _ = model_loader("download")
-        else:
-            selected_model_dir = os.path.join(SAVE_FOLDER, data['modelName'])
-            if os.path.isfile(selected_model_dir):
-                try:
-                    state.model, _ = model_loader(data['modelName'])
-                except:
-                    return state_error_model_load(state, data['modelName'], start_time)
-            else:
-                return state_error_model_load(state, data['modelName'], start_time)
-
-    state.cashing = data['cashing']
-    state.status = {"status": "readyToCluster", "time": time() - start_time}
-    return state.status
 
 def state_error_model_load(state, name, start_time):
     state.img_dir = None
@@ -110,15 +147,16 @@ def cluster_images():
     state.img_clusters = []
     images_and_latents, _, _ = images_to_latent(image_folder=state.img_dir,
                                                 model=state.model,
-                                                cashing=state.cashing,
+                                                caching=state.caching,
                                                 ignore_errors=True)
     
     state.img_names = [item[0] for item in images_and_latents]
     state.img_clusters = cluster_latent_vectors(images_and_latents)
     cluster_sizes = cluster_measuring(state.img_clusters)
     state.status = {"status": "readyToPopulate",
-                    "classSizes": cluster_sizes,
+                    "classesSizes": cluster_sizes,
                     "imagesNames": state.img_names,
+                    "imagesFolder": state.img_dir,
                     "time": time() - start_time
                     }
     return state.status
@@ -126,6 +164,16 @@ def cluster_images():
 def cluster_measuring(clusters):
     # Размеры кластеров
     return [(cluster[0], sum([i[2] for i in cluster[1]])) for cluster in clusters]
+
+def image_probs_get(data):
+    start_time = time()
+    state = app.state
+
+    state.status = {"status": "imagesProbs",
+                    "probs": state.img_clusters[data['id']][1],
+                    "time": time() - start_time
+                    }
+    return state.status
 
 
 if __name__ == '__main__':

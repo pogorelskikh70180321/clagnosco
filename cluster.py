@@ -1,7 +1,7 @@
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
 import numpy as np
-from typing import Dict, List, Tuple
+from typing import List, Tuple
 import warnings
 warnings.filterwarnings('ignore')
 
@@ -49,7 +49,7 @@ def cluster_latent_vectors(images_and_latents: List[Tuple[str, np.ndarray]]) -> 
     # Расчёт оптимального количества k с помощью метода локтя
     optimal_k = determine_optimal_clusters_elbow(latents_scaled, max_k=20)
     
-    # K-means центры коастеров
+    # K-means центры кластеров
     kmeans = KMeans(n_clusters=optimal_k, random_state=42, n_init=10)
     kmeans.fit(latents_scaled)
     centers = kmeans.cluster_centers_

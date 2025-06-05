@@ -1,3 +1,10 @@
+var clagnoscoClassesSizes = [];
+var clagnoscoImagesNames = [];
+var imagesFolder;
+const imgView = '/img/';
+const smallImgView = '/img_small/';
+
+
 function showCustomAlert(message, timeout=5000) {
     const alertBox = document.getElementById("custom-alert");
     alertBox.textContent = message;
@@ -29,14 +36,43 @@ async function sendToServer(data) {
     }
 }
 
+function clearCache(confirmClearingCache=true) {
+    let imgDir = document.getElementById("localFolder");
+    
+    if (confirmClearingCache) {
+        const confirmStatus = window.confirm(`Очистить кэш в директории «${imgDir.value}»?`);
+
+        if (!confirmStatus) {
+            return null;
+        }
+    }
+    let instruction = {'command': 'clearCache',
+                       'imgDir': imgDir.value};
+
+    sendToServer(instruction).then(answer => {
+        console.log("Ответ:", answer);
+
+        if (answer["status"] === "cacheCleared") {
+            showCustomAlert("Кэш успешно очищен в выбранной директории", timeout=5000);
+        } else if (answer["status"] === "error") {
+            alert(answer["message"]);
+        } else {
+            // alert("Странный ответ сервера.");
+        }
+    }).catch(error => {
+        console.error("Ошибка обработки запроса:", error);
+        resetAll();
+    });
+}
+
 function resetAll() {
     let imgDir = document.getElementById("localFolder");
     let modelName = document.getElementById("modelNameSelect");
-    let cashing = document.getElementById("cashing");
+    let caching = document.getElementById("caching");
 
     imgDir.disabled = false;
     modelName.disabled = false;  
-    cashing.disabled = false;
+    caching.disabled = false;
 
 
     let menuStatusInit = document.getElementById("menuStatusInit");
@@ -46,20 +82,27 @@ function resetAll() {
     menuStatusInit.classList.remove("hidden");
     menuStatusProcessing.classList.add("hidden");
     menuStatusDone.classList.add("hidden");
+
+    clagnoscoClassesSizes = [];
+    clagnoscoImagesNames = [];
+    imagesFolder;
+
+    clearImages();
+    clearClagnoscoClasses();
 }
 
 
 function launchProcessing() {
     let imgDir = document.getElementById("localFolder");
     let modelName = document.getElementById("modelNameSelect");
-    let cashing = document.getElementById("cashing");
+    let caching = document.getElementById("caching");
     let instruction = {'command': 'launchProcessing',
                        'imgDir': imgDir.value,
                        'modelName': modelName.value,
-                       'cashing': cashing.checked};
+                       'caching': caching.checked};
     imgDir.disabled = true;
     modelName.disabled = true;  
-    cashing.disabled = true;
+    caching.disabled = true;
 
     let menuStatusInit = document.getElementById("menuStatusInit");
     let menuStatusProcessing = document.getElementById("menuStatusProcessing");
@@ -94,9 +137,6 @@ function launchProcessing() {
     });
 }
 
-var clagnoscoClasses = [];
-var clagnoscoImagesNames = [];
-
 function clusterImages(imagesCount=-1) {
     let menuStatusProcessingText = document.getElementById("menuStatusProcessing").children[1];
     if (imagesCount === -1) {
@@ -114,12 +154,23 @@ function clusterImages(imagesCount=-1) {
             // alert("Processing launched successfully.");
             // console.log(answer);
             
-            clagnoscoClassSizes = answer["classSizes"];
+            clagnoscoClassesSizes = answer["classesSizes"];
             clagnoscoImagesNames = answer["imagesNames"];
+            imagesFolder = answer["imagesFolder"];
             
             menuStatusProcessingText.textContent = "Распределение кластеров...";
 
-            showCustomAlert(`Все изображения обработаны (${clagnoscoImagesNames.length}). Было найдено данное количество кластеров: ${clagnoscoClassSizes.length}`);
+            showCustomAlert(`Все изображения обработаны (${clagnoscoImagesNames.length}). Было найдено данное количество кластеров: ${clagnoscoClassesSizes.length}`);
+            populateClagnoscoClasses();
+            populateImages();
+
+            let menuStatusInit = document.getElementById("menuStatusInit");
+            let menuStatusProcessing = document.getElementById("menuStatusProcessing");
+            let menuStatusDone = document.getElementById("menuStatusDone");
+
+            menuStatusInit.classList.add("hidden");
+            menuStatusProcessing.classList.add("hidden");
+            menuStatusDone.classList.remove("hidden");
 
         } else if (answer["status"] === "error") {
             alert(answer["message"]);
@@ -133,12 +184,6 @@ function clusterImages(imagesCount=-1) {
         resetAll();
     });
 }
-
-function populate() {
-    clagnoscoClasses = population["classes"];
-    clagnoscoImages = population["images"];
-}
-
 
 function bracketsRemoval(text) {
     return text.split("(")[1].split(")")[0];
@@ -166,7 +211,7 @@ function openFullImage(elem) {
     src = elemImage.src;
     let new_src;
     if (isLocalServerURL(src)) {
-        new_src = src.replace('/img_small/', '/img/', 1);
+        new_src = src.replace(smallImgView, imgView, 1);
     } else {
         new_src = src;
     }
@@ -236,9 +281,8 @@ function selectClagnoscoClass(elemBtn) {
     }
     nameTabName.textContent = originName;
 
-
-
-    // repopulateProbs(id); receiving from server
+    imageProbsOrder();
+    // repopulateProbs(id); receiving from server!!!!!!!!!!!!
 }
 
 function deselectClagnoscoClass() {
@@ -254,6 +298,20 @@ function deselectClagnoscoClass() {
     document.getElementById("classTab").classList.add('hidden');
 }
 
+function clearClagnoscoClasses() {
+    deselectClagnoscoClass();
+    document.getElementsByClassName("classes-list")[0].innerHTML = '';
+}
+
+function populateClagnoscoClasses() {
+    clearClagnoscoClasses();
+
+    for (let i = 0; i < clagnoscoClassesSizes.length; i++) {
+        baseAddClagnoscoClassTemplate(nameText=clagnoscoClassesSizes[i][0], sizeText=clagnoscoClassesSizes[i][1]);
+    }
+
+    document.getElementsByClassName('classes-tab')[0].classList.remove('hidden');
+}
 
 function renameClagnoscoClass() {
     let currentClagnoscoClass = currentSelectedClagnoscoClass();
@@ -513,4 +571,49 @@ function deselectAllImages(confirmDeselectingAllImages=true) {
         }
     }
     setPercentImages(101);
+}
+
+
+function clearImages() {
+    document.getElementsByClassName("images-tab")[0].innerHTML = '';
+}
+
+function populateImages(probs=undefined) {
+    clearImages();
+
+    if (probs === undefined) {
+        for (let i = 0; i < clagnoscoImagesNames.length; i++) {
+            baseAddImageContainerTemplate(imageSrc=imgView+imagesFolder+clagnoscoImagesNames[i],
+                                          imageName=clagnoscoImagesNames[i]);
+        }
+    } else {
+        probs.forEach(([name, prob, isMember]) => {
+            baseAddImageContainerTemplate(imageSrc=imgView+imagesFolder+name,
+                                          imageName=name,
+                                          prob=prob,
+                                          isMember=isMember);
+        });
+    }
+    
+    updateCheckedImagesCount();
+}
+
+function imageProbsOrder() {
+    let currentClagnoscoClass = currentSelectedClagnoscoClass();
+    let clagnoscoClassID = parseInt(currentClagnoscoClass.children[0].children[0].textContent.replace('№', '', 1)) - 1;
+
+    let instruction = {'command': 'imageProbsGet',
+                       'id': clagnoscoClassID};
+    
+    sendToServer(instruction).then(answer => {
+        console.log("Ответ:", answer);
+
+        if (answer["status"] === "imagesProbs") {
+            populateImages(answer["probs"]);
+        } else {
+            // alert("Странный ответ сервера.");
+        }
+    }).catch(error => {
+        console.error("Ошибка обработки запроса:", error);
+    });
 }

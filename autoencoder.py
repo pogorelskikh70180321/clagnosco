@@ -463,13 +463,13 @@ def delete_untrained_loss_log_files():
                 print(f"Ошибка при удалении файла {file_path}: {e}")
 
 
-def images_to_latent(image_folder, model=None, cashing=False, ignore_errors=True):
+def images_to_latent(image_folder, model=None, caching=False, ignore_errors=True):
     """
     Преобразование изображений из папки в латентные векторы с помощью модели автоэнкодера.
     Аргументы:
         image_folder: str (путь к папке с изображениями)
         model: ClagnoscoAutoencoder или str (сама модель, путь к модели или URL)
-        cashing: bool (по умолчанию False) - кэшировать и использовать латентные векторы в файлах _latent.npy)
+        caching: bool (по умолчанию False) - кэшировать и использовать латентные векторы в файлах _latent.npy)
         ignore_errors: bool (по умолчанию True) - ингорировать файлы с ошибками
     Возвращает:
         images_and_latents: список кортежей (путь к изображению, латентный вектор)
@@ -487,7 +487,7 @@ def images_to_latent(image_folder, model=None, cashing=False, ignore_errors=True
     errored_images = []
     for filename in os.listdir(image_folder):
         try:
-            if cashing:
+            if caching:
                 latent_path = os.path.join(image_folder, filename + "_latent.npy")
                 if os.path.exists(latent_path):
                     latent = np.load(latent_path)
@@ -496,7 +496,7 @@ def images_to_latent(image_folder, model=None, cashing=False, ignore_errors=True
             image_path = os.path.join(image_folder, filename)
             latent, _ = run_image_through_autoencoder(model, image_path, decode=False)
             images_and_latents.append((filename, latent.cpu().numpy()))
-            if cashing:
+            if caching:
                 np.save(latent_path, latent.cpu().numpy())
         except Exception as e:
             if not filename.endswith("_latent.npy"):
@@ -506,7 +506,7 @@ def images_to_latent(image_folder, model=None, cashing=False, ignore_errors=True
     
     return images_and_latents, errored_images, True
 
-def clear_cash(image_folder):
+def clear_cache(image_folder):
     """
     Очистка кэша латентных векторов в папке с изображениями.
     Аргументы:

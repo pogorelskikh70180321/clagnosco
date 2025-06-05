@@ -19,7 +19,7 @@
                 <div class="project-name">
                     <div class="project-name-text">Clagnosco</div>
                     <button class="class-button class-button-info" title="Информация о Clagnosco" onclick="
-                        window.open('https://github.com/', '_blank')"
+                        window.open('https://github.com/pogorzelskich/clagnosco', '_blank')"
                     "></button>
                 </div>
                 <input type="text" id="localFolder" placeholder="Введите путь к папке с изображениями" value="C:\!project-dataset\z_images_small"/>
@@ -30,12 +30,12 @@
                 </select>
 
                 <div class="checkbox">
-                    <input type="checkbox" id="cashing" checked/>
-                    <label for="cashing">Кэшировать латентные векторы</label>
+                    <input type="checkbox" id="caching" checked/>
+                    <label for="caching">Кэшировать латентные векторы</label>
                 </div>
 
                 <div class="init-button-area" id="menuStatusInit">
-                    <button class="init-btn-clear-cash" id="initButtonClearCash">Очистить кэш</button>
+                    <button class="init-btn-clear-cache" id="initButtonClearCache" onclick="clearCache();">Очистить кэш</button>
                     <button class="init-btn-process" id="initButtonProcess" onclick="launchProcessing();">Обработать</button>
                 </div>
 
@@ -50,7 +50,7 @@
                 </div>
                 
             </div>
-            <div class="classes-tab">
+            <div class="classes-tab hidden">
                 <div class="classes-header">
                     <label>Выбор класса</label>
                     <button class="class-button class-button-add" title="Создать пустой класс" onclick="createEmptyClagnoscoClass();"></button>
