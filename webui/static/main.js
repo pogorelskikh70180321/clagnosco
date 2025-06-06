@@ -1,5 +1,8 @@
 var safeReload = true;
 var loggingFetch = true;
+var serverConnect = true;
+var serverReconnect = false;
+var reloadNeeded = false;
 
 var clagnoscoClassesSizes = [];
 var clagnoscoImagesNames = [];
@@ -19,9 +22,11 @@ function setupReloadConfirmation() {
     });
     
     window.addEventListener('beforeunload', function (e) {
-        if (!safeReload) {
-            e.preventDefault();
-            hiddenForm.querySelector('input[type="submit"]').click();
+        if (!reloadNeeded) {
+            if (!safeReload) {
+                e.preventDefault();
+                hiddenForm.querySelector('input[type="submit"]').click();
+            }
         }
     });
 }
@@ -31,12 +36,14 @@ function showCustomAlert(message, timeout=5000) {
     alertBox.textContent = message;
     alertBox.classList.add("show");
 
-    setTimeout(() => {
-        alertBox.classList.remove("show");
-    }, timeout);
+    if (timeout !== -1) {
+        setTimeout(() => {
+            alertBox.classList.remove("show");
+        }, timeout);
+    }
 }
 
-async function sendToServer(data) {
+async function sendToServer(data, isBasic=false) {
     try {
         if (loggingFetch) {
             console.log("Запрос:", data);
@@ -50,6 +57,14 @@ async function sendToServer(data) {
             body: JSON.stringify(data)
         });
 
+        if (reloadNeeded) {
+            safeReload = true;
+            serverConnect = true;
+            serverReconnect = true;
+            showCustomAlert("Соединение с сервером восстановлено. Перезагрузите страницу.", timeout=-1);
+            return null;
+        }
+
         if (!response.ok) {
             throw new Error('Нет ответа');
         }
@@ -58,9 +73,44 @@ async function sendToServer(data) {
         if (loggingFetch) {
             console.log("Ответ:", answer);
         }
+        
         return answer;
+
     } catch (error) {
-        console.error('Ошибка:', error);
+        if (!isBasic) {
+            console.error('Ошибка:', error);
+            const answer = await sendToServer({ command: "basicResponse" }, true);
+            
+            if (answer["status"] === "basicResponseSuccess") {
+                if (!serverConnect) {
+                    reloadNeeded = true;
+                    safeReload = true;
+                    if (!serverReconnect) {
+                        showCustomAlert("Соединение с сервером восстановлено. Перезагрузите страницу.", timeout=-1);
+                    }
+                }
+            } else {
+                if (serverConnect) {
+                    reloadNeeded = true;
+                    serverConnect = false;
+                    serverReconnect = false;
+                    safeReload = true;
+                    if (!serverReconnect) {
+                        showCustomAlert("Потеряно соединение с сервером. Процесс не сохранён.", timeout=-1);
+                    }
+                }
+            }
+        } else {
+            if (serverConnect) {
+                reloadNeeded = true;
+                serverConnect = false;
+                serverReconnect = false;
+                safeReload = true;
+                if (!serverReconnect) {
+                    showCustomAlert("Потеряно соединение с сервером. Процесс не сохранён.", timeout=-1);
+                }
+            }
+        }
         return { error: error.message };
     }
 }
@@ -93,6 +143,10 @@ function clearCache(confirmClearingCache=true) {
 }
 
 function resetAll(confirmResetAll=true) {
+    if (reloadNeeded) {
+        confirmResetAll=false;
+    }
+
     if (confirmResetAll) {
         const confirmStatus = window.confirm(`Сбросить всё?`);
 
@@ -687,8 +741,17 @@ function populateModels(localModelsInclude=true, internetModelDownloadInclude=tr
         clearModels();
     }
 
+    if (reloadNeeded) {
+        if (serverReconnect) {
+            baseAddModelTemplate("", "(Соединение восстановлено. Перезагрузите страницу)");
+        } else {
+            baseAddModelTemplate("", "(Нет соединения с сервером)");
+        }
+        return null;
+    }
+
     if (internetModelDownloadInclude) {
-        baseAddmodelTemplate();
+        baseAddModelTemplate();
     }
 
     if (localModelsInclude) {
@@ -698,7 +761,7 @@ function populateModels(localModelsInclude=true, internetModelDownloadInclude=tr
             if (answer["status"] === "readyToInit") {
                 let modelNames = answer["modelNames"];
                 for (let i = 0; i < modelNames.length; i++) {
-                    baseAddmodelTemplate(modelName=modelNames[i]);
+                    baseAddModelTemplate(modelName=modelNames[i]);
                 }
                 let modelOptions = document.getElementById("modelNameSelect");
                 if (modelOptions.children.length > 1) {

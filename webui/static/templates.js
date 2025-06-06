@@ -95,19 +95,28 @@ function baseAddImageContainerTemplate(imageSrc=undefined, imageName="Example", 
     classesListElement.appendChild(div);
 }
 
-function modelTemplate(modelName="download") {
+function modelTemplate(modelName="download", modelCaption=undefined) {
     const option = document.createElement('option');
     if (modelName === "download") {
         option.textContent = 'model.pt (использование модели из интернета без сохранения на диск)';
     } else {
         option.textContent = modelName;
     }
+
+    if (modelCaption !== undefined) {
+        option.textContent = modelCaption;
+    }
     option.value = modelName;
     return option
 }
 
-function baseAddmodelTemplate(modelName="download") {
-    let option = modelTemplate(modelName=modelName);
+function baseAddModelTemplate(modelName="download", modelCaption=undefined) {
+    let option;
+    if (modelName === undefined) {
+        option = modelTemplate(modelName="model.pt", modelCaption=modelCaption);
+    } else {
+        option = modelTemplate(modelName=modelName, modelCaption=modelCaption);
+    }
     let modelsListElement = document.getElementById('modelNameSelect');
     modelsListElement.appendChild(option);
 }

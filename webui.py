@@ -106,7 +106,16 @@ def serve_image_small(filename):
 @app.route('/fetch', methods=['POST'])
 def fetch():
     data = request.get_json()
-    if data['command'] == 'launchProcessing':
+    if data['command'] == 'basicResponse':
+        start_time = time()
+        state = app.state
+        
+        state.status = {
+            "status": "basicResponseSuccess",
+            "time": time() - start_time
+            }
+        return state.status
+    elif data['command'] == 'launchProcessing':
         result = launch_processing(data)
     elif data['command'] == 'clusterImages':
         result = cluster_images()
