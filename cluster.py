@@ -47,7 +47,7 @@ def cluster_latent_vectors(images_and_latents: List[Tuple[str, np.ndarray]]) -> 
     latents_scaled = scaler.fit_transform(latents)
     
     # Расчёт оптимального количества k с помощью метода локтя
-    max_k = len(filenames) // 10
+    max_k = min(len(filenames), (len(filenames) // 3) + 2)
     optimal_k = determine_optimal_clusters_elbow(latents_scaled, max_k=max_k)
     
     # K-means центры кластеров
