@@ -12,7 +12,8 @@ import tempfile
 if __name__ == "__main__":
     from tqdm import tqdm
 else:
-    from tqdm.notebook import tqdm
+    # from tqdm.notebook import tqdm
+    from tqdm import tqdm
 
 
 # Информация о проекте:

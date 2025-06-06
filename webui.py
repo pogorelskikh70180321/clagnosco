@@ -1,5 +1,5 @@
-import logging
 from flask import Flask, render_template, send_file, abort, request, jsonify
+# import logging
 import os
 from PIL import Image
 import io
@@ -26,54 +26,54 @@ class AppState:
 app = Flask(__name__, static_folder='webui/static', template_folder='webui/templates')
 app.state = AppState()
 
-class ImageRouteFilter(logging.Filter):
-    def filter(self, record):
-        message_sources = []
+# class ImageRouteFilter(logging.Filter):
+#     def filter(self, record):
+#         message_sources = []
         
-        if hasattr(record, 'getMessage'):
-            try:
-                formatted_msg = record.getMessage()
-                message_sources.append(formatted_msg)
-            except:
-                pass
+#         if hasattr(record, 'getMessage'):
+#             try:
+#                 formatted_msg = record.getMessage()
+#                 message_sources.append(formatted_msg)
+#             except:
+#                 pass
         
-        if hasattr(record, 'msg'):
-            message_sources.append(str(record.msg))
+#         if hasattr(record, 'msg'):
+#             message_sources.append(str(record.msg))
         
-        if hasattr(record, 'msg') and hasattr(record, 'args') and record.args:
-            try:
-                formatted_with_args = record.msg % record.args
-                message_sources.append(str(formatted_with_args))
-            except:
-                pass
+#         if hasattr(record, 'msg') and hasattr(record, 'args') and record.args:
+#             try:
+#                 formatted_with_args = record.msg % record.args
+#                 message_sources.append(str(formatted_with_args))
+#             except:
+#                 pass
         
-        for msg in message_sources:
-            if msg and isinstance(msg, str):
-                if 'GET /' in msg:
-                    try:
-                        path_start = msg.find('GET /') + 4
-                        path_end = msg.find(' ', path_start)
-                        if path_end == -1:
-                            path_end = msg.find('"', path_start)
-                        if path_end == -1:
-                            path_end = len(msg)
+#         for msg in message_sources:
+#             if msg and isinstance(msg, str):
+#                 if 'GET /' in msg:
+#                     try:
+#                         path_start = msg.find('GET /') + 4
+#                         path_end = msg.find(' ', path_start)
+#                         if path_end == -1:
+#                             path_end = msg.find('"', path_start)
+#                         if path_end == -1:
+#                             path_end = len(msg)
                         
-                        path = msg[path_start:path_end]
+#                         path = msg[path_start:path_end]
                         
-                        if path.startswith('/img/') or path.startswith('/img_small/') or path.startswith('/static/'):
-                            return False
-                    except:
-                        blocked_patterns = ['GET /img/', 'GET /img_small/', 'GET /static/']
-                        if any(pattern in msg for pattern in blocked_patterns):
-                            return False
-        return True
+#                         if path.startswith('/img/') or path.startswith('/img_small/') or path.startswith('/static/'):
+#                             return False
+#                     except:
+#                         blocked_patterns = ['GET /img/', 'GET /img_small/', 'GET /static/']
+#                         if any(pattern in msg for pattern in blocked_patterns):
+#                             return False
+#         return True
 
 
-werkzeug_logger = logging.getLogger('werkzeug')
-werkzeug_logger.addFilter(ImageRouteFilter())
+# werkzeug_logger = logging.getLogger('werkzeug')
+# werkzeug_logger.addFilter(ImageRouteFilter())
 
-root_logger = logging.getLogger()
-root_logger.addFilter(ImageRouteFilter())
+# root_logger = logging.getLogger()
+# root_logger.addFilter(ImageRouteFilter())
 
 
 @app.route('/')
@@ -185,7 +185,8 @@ def launch_processing(data):
                     return state_error_model_load(state, data['modelName'], start_time)
 
         state.caching = data['caching']
-        state.status = {"status": "readyToCluster", "time": time() - start_time}
+        state.status = {"status": "readyToCluster",
+                        "time": time() - start_time}
         return state.status
     except:
         state.status = {
@@ -217,10 +218,13 @@ def cluster_images():
                                                 model=state.model,
                                                 caching=state.caching,
                                                 ignore_errors=True)
+    print("images_to_latent завершено")
     
     state.img_names = [item[0] for item in images_and_latents]
     state.img_clusters = cluster_latent_vectors(images_and_latents)
+    print("cluster_latent_vectors завершено")
     cluster_sizes = cluster_measuring(state.img_clusters)
+    print("cluster_measuring завершено")
     state.status = {"status": "readyToPopulate",
                     "classesSizes": cluster_sizes,
                     "imagesNames": state.img_names,
