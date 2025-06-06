@@ -138,7 +138,7 @@ function clearCache(confirmClearingCache=true) {
         }
     }).catch(error => {
         console.error("Ошибка обработки запроса:", error);
-        resetAll();
+        resetAll(confirmResetAll=false);
     });
 }
 
@@ -229,14 +229,16 @@ function launchProcessing() {
         } else if (answer["status"] === "error") {
             alert(answer["message"]);
             
-            resetAll();
+            resetAll(confirmResetAll=false);
         } else {
             // alert("Странный ответ сервера.");
-            resetAll();
+            
+            resetAll(confirmResetAll=false);
         }
     }).catch(error => {
         console.error("Ошибка обработки запроса:", error);
-        resetAll();
+        
+        resetAll(confirmResetAll=false);
     });
 }
 
@@ -275,14 +277,17 @@ function clusterImages(imagesCount=-1) {
 
         } else if (answer["status"] === "error") {
             alert(answer["message"]);
-            resetAll();
+            
+            resetAll(confirmResetAll=false);
         } else {
             // alert("Странный ответ сервера.");
-            resetAll();
+            
+            resetAll(confirmResetAll=false);
         }
     }).catch(error => {
         console.error("Ошибка обработки запроса:", error);
-        resetAll();
+        
+        resetAll(confirmResetAll=false);
     });
 }
 
