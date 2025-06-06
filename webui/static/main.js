@@ -1,9 +1,30 @@
+var safeReload = true;
+var loggingFetch = true;
+
 var clagnoscoClassesSizes = [];
 var clagnoscoImagesNames = [];
 var imagesFolder;
 const imgView = '/img/';
 const smallImgView = '/img_small/';
 
+
+function setupReloadConfirmation() {
+    const hiddenForm = document.createElement('form');
+    hiddenForm.classList.add("hidden");
+    hiddenForm.innerHTML = '<input type="submit">';
+    document.getElementsByClassName('container')[0].appendChild(hiddenForm);
+    
+    hiddenForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+    });
+    
+    window.addEventListener('beforeunload', function (e) {
+        if (!safeReload) {
+            e.preventDefault();
+            hiddenForm.querySelector('input[type="submit"]').click();
+        }
+    });
+}
 
 function showCustomAlert(message, timeout=5000) {
     const alertBox = document.getElementById("custom-alert");
@@ -17,6 +38,10 @@ function showCustomAlert(message, timeout=5000) {
 
 async function sendToServer(data) {
     try {
+        if (loggingFetch) {
+            console.log("Запрос:", data);
+        }
+
         const response = await fetch('/fetch', {
             method: 'POST',
             headers: {
@@ -29,7 +54,11 @@ async function sendToServer(data) {
             throw new Error('Нет ответа');
         }
 
-        return await response.json();
+        const answer = await response.json();
+        if (loggingFetch) {
+            console.log("Ответ:", answer);
+        }
+        return answer;
     } catch (error) {
         console.error('Ошибка:', error);
         return { error: error.message };
@@ -50,8 +79,6 @@ function clearCache(confirmClearingCache=true) {
                        'imgDir': imgDir.value};
 
     sendToServer(instruction).then(answer => {
-        console.log("Ответ:", answer);
-
         if (answer["status"] === "cacheCleared") {
             showCustomAlert("Кэш успешно очищен в выбранной директории", timeout=5000);
         } else if (answer["status"] === "error") {
@@ -73,7 +100,7 @@ function resetAll(confirmResetAll=true) {
             return null;
         }
     }
-    
+
     let loading = document.getElementsByClassName('fullscreen-loader')[0];
     loading.classList.remove('hidden');
 
@@ -98,20 +125,25 @@ function resetAll(confirmResetAll=true) {
     clagnoscoImagesNames = [];
     imagesFolder;
 
-    clearImages();
-    clearClagnoscoClasses();
+    deleteAllImages();
+    deleteAllClagnoscoClasses(false);
     populateModels();
 
     document.getElementsByClassName('classes-tab')[0].classList.add('hidden');
     document.getElementById('classTab').classList.add('hidden');
 
+    let classTabLoading = document.getElementsByClassName("class-tab-loading")[0];
+    classTabLoading.classList.add('hidden');
 
+    safeReload = true;
 
     loading.classList.add('hidden');
 }
 
 
 function launchProcessing() {
+    safeReload = false;
+
     let imgDir = document.getElementById("localFolder");
     let modelName = document.getElementById("modelNameSelect");
     let caching = document.getElementById("caching");
@@ -138,8 +170,6 @@ function launchProcessing() {
     menuStatusDone.classList.add("hidden");
 
     sendToServer(instruction).then(answer => {
-        console.log("Ответ:", answer);
-
         if (answer["status"] === "readyToCluster") {
             clusterImages();
         } else if (answer["status"] === "error") {
@@ -167,8 +197,6 @@ function clusterImages(imagesCount=-1) {
     let instruction = {'command': 'clusterImages'};
     
     sendToServer(instruction).then(answer => {
-        console.log("Ответ:", answer);
-
         if (answer["status"] === "readyToPopulate") {
             // alert("Processing launched successfully.");
             // console.log(answer);
@@ -264,6 +292,11 @@ function currentSelectedClagnoscoClass() {
 }
 
 function selectClagnoscoClass(elemBtn) {
+    const classTabLoading = document.getElementsByClassName("class-tab-loading")[0];
+    const classTab = document.getElementById("classTab");
+    classTabLoading.classList.remove('hidden');
+    classTab.classList.add('hidden');
+
     let selectedButton = elemBtn;
     let selectedClagnoscoClass = elemBtn.parentElement;
     let currentClagnoscoClass = currentSelectedClagnoscoClass();
@@ -277,8 +310,6 @@ function selectClagnoscoClass(elemBtn) {
 
     selectedButton.disabled = true;
     selectedClagnoscoClass.classList.add('class-selected');
-
-    document.getElementById("classTab").classList.remove('hidden');
 
     // The rest
     // acceptImageChanges(); sending to server
@@ -299,9 +330,25 @@ function selectClagnoscoClass(elemBtn) {
         nameTabName.classList.remove('name-empty');
     }
     nameTabName.textContent = originName;
+    
+    const imagesTab = document.getElementById("imagesTab");
+    
+    imageProbsOrder().then(() => {
+        imagesTab.scrollTop = 0;
+        classTabLoading.classList.add('hidden');
+        classTab.classList.remove('hidden');
+    }).catch(error => {
+        console.error("Error in imageProbsOrder:", error);
+        imagesTab.scrollTop = 0;
+        classTabLoading.classList.add('hidden');
+        classTab.classList.remove('hidden');
+    });
+    // imageProbsOrder();
 
-    imageProbsOrder();
-    // repopulateProbs(id); receiving from server!!!!!!!!!!!!
+    // setTimeout(() => {
+    //     classTabLoading.classList.add('hidden');
+    //     classTab.classList.remove('hidden');
+    // }, 10);
 }
 
 function deselectClagnoscoClass() {
@@ -315,20 +362,18 @@ function deselectClagnoscoClass() {
     }
     
     document.getElementById("classTab").classList.add('hidden');
-}
-
-function clearClagnoscoClasses() {
-    deselectClagnoscoClass();
-    document.getElementsByClassName("classes-list")[0].innerHTML = '';
+    let classTabLoading = document.getElementsByClassName("class-tab-loading")[0];
+    classTabLoading.classList.add('hidden');
 }
 
 function populateClagnoscoClasses() {
-    clearClagnoscoClasses();
+    deleteAllClagnoscoClasses(confirmDeletingAll=false);
 
     for (let i = 0; i < clagnoscoClassesSizes.length; i++) {
         baseAddClagnoscoClassTemplate(nameText=clagnoscoClassesSizes[i][0], sizeText=clagnoscoClassesSizes[i][1]);
     }
 
+    document.getElementById("classesList").scrollTop = 0;
     document.getElementsByClassName('classes-tab')[0].classList.remove('hidden');
 }
 
@@ -375,9 +420,8 @@ function createEmptyClagnoscoClass(confirmCreatingEmpty=true) {
             return null;
         }
     }
-    baseAddClagnoscoClassTemplate(nameText="Пустой класс", sizeText=0);
 
-    // Send changes to server
+    addEmptyClagnoscoClassServer();
 }
 
 function copyClagnoscoClass(currentButtonCopy=undefined, confirmCopying=true) {
@@ -391,6 +435,8 @@ function copyClagnoscoClass(currentButtonCopy=undefined, confirmCopying=true) {
     currentButton = currentClagnoscoClass.children[0];
     let currentButtonChildren = currentButton.children;
     let nameText = currentButtonChildren[1].textContent;
+    let idText = parseInt(currentButtonChildren[0].textContent.replace('№', '', 1)) - 1;
+    let newName = nameText + " — копия";
     
     if (confirmCopying) {
         const confirmStatus = window.confirm(`Копировать класс «${nameText}»?`);
@@ -401,7 +447,7 @@ function copyClagnoscoClass(currentButtonCopy=undefined, confirmCopying=true) {
     }
 
     let sizeText = bracketsRemoval(currentButtonChildren[2].textContent);
-    baseAddClagnoscoClassTemplate(nameText=nameText + " — копия", sizeText=sizeText);
+    copyClagnoscoClassServer(idText, newName, sizeText);
 
     // acceptImageChanges(); sending to server
     // Send changes to server
@@ -439,7 +485,8 @@ function deleteClagnoscoClass(currentButtonDelete=undefined, confirmDeleting=tru
     currentButton = currentClagnoscoClass.children[0];
     let currentButtonChildren = currentButton.children;
     let nameText = currentButtonChildren[1].textContent;
-    
+    let idText = parseInt(currentButtonChildren[0].textContent.replace('№', '', 1)) - 1;
+
     if (confirmDeleting) {
         const confirmStatus = window.confirm(`Удалить класс «${nameText}»?`);
 
@@ -447,14 +494,8 @@ function deleteClagnoscoClass(currentButtonDelete=undefined, confirmDeleting=tru
             return null;
         }
     }
-    if (isSelected) {
-        deselectClagnoscoClass();
-    }
-    currentClagnoscoClass.remove();
 
-
-    redoIndexing();
-    // Send changes to server
+    deleteClagnoscoClassServer(idText, currentClagnoscoClass, isSelected);
 }
 
 function deleteAllClagnoscoClasses(confirmDeletingAll=true) {
@@ -593,12 +634,12 @@ function deselectAllImages(confirmDeselectingAllImages=true) {
 }
 
 
-function clearImages() {
+function deleteAllImages() {
     document.getElementsByClassName("images-tab")[0].innerHTML = '';
 }
 
 function populateImages(probs=undefined) {
-    clearImages();
+    deleteAllImages();
 
     if (probs === undefined) {
         for (let i = 0; i < clagnoscoImagesNames.length; i++) {
@@ -624,9 +665,7 @@ function imageProbsOrder() {
     let instruction = {'command': 'imageProbsGet',
                        'id': clagnoscoClassID};
     
-    sendToServer(instruction).then(answer => {
-        console.log("Ответ:", answer);
-
+    return sendToServer(instruction).then(answer => {
         if (answer["status"] === "imagesProbs") {
             populateImages(answer["probs"]);
         } else {
@@ -656,8 +695,6 @@ function populateModels(localModelsInclude=true, internetModelDownloadInclude=tr
         let instruction = {'command': 'modelsInFolder'};
 
         sendToServer(instruction).then(answer => {
-            console.log("Ответ:", answer);
-
             if (answer["status"] === "readyToInit") {
                 let modelNames = answer["modelNames"];
                 for (let i = 0; i < modelNames.length; i++) {
@@ -676,3 +713,61 @@ function populateModels(localModelsInclude=true, internetModelDownloadInclude=tr
         });
     }
 }
+
+function addEmptyClagnoscoClassServer() {
+    let instruction = {'command': 'addEmptyClagnoscoClass'};
+    
+    return sendToServer(instruction).then(answer => {
+        if (answer["status"] === "emptyClagnoscoClassAdded") {
+            baseAddClagnoscoClassTemplate(nameText="Пустой класс", sizeText=0);
+        } else if (answer["status"] === "error") {
+            alert(answer["message"]);
+        } else {
+            // alert("Странный ответ сервера.");
+        }
+    }).catch(error => {
+        console.error("Ошибка обработки запроса:", error);
+    });
+}
+
+function copyClagnoscoClassServer(clagnoscoClassID, clagnoscoClassName, clagnoscoClassSize) {
+    let instruction = {'command': 'copyClagnoscoClass',
+                       'id': clagnoscoClassID,
+                       'newName': clagnoscoClassName
+                      };
+    
+    return sendToServer(instruction).then(answer => {
+        if (answer["status"] === "clagnoscoClassCopied") {
+            baseAddClagnoscoClassTemplate(nameText=clagnoscoClassName, sizeText=clagnoscoClassSize);
+        } else if (answer["status"] === "error") {
+            alert(answer["message"]);
+        } else {
+            // alert("Странный ответ сервера.");
+        }
+    }).catch(error => {
+        console.error("Ошибка обработки запроса:", error);
+    });
+}
+
+function deleteClagnoscoClassServer(clagnoscoClassID, currentClagnoscoClass, isSelected) {
+    let instruction = {'command': 'deleteClagnoscoClass',
+                       'id': clagnoscoClassID
+                      };
+    
+    return sendToServer(instruction).then(answer => {
+        if (answer["status"] === "clagnoscoClassDeleted") {
+            if (isSelected) {
+                deselectClagnoscoClass();
+            }
+            currentClagnoscoClass.remove();
+            redoIndexing();
+        } else if (answer["status"] === "error") {
+            alert(answer["message"]);
+        } else {
+            // alert("Странный ответ сервера.");
+        }
+    }).catch(error => {
+        console.error("Ошибка обработки запроса:", error);
+    });
+}
+

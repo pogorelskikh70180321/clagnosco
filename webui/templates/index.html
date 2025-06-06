@@ -9,7 +9,7 @@
     <title>Clagnosco - Классификация изображений</title>
     <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='svg/clagnosco.svg') }}">
 </head>
-<body onload="resetAll(confirmResetAll=false);">
+<body onload="setupReloadConfirmation(); resetAll(confirmResetAll=false);">
     <div id="custom-alert" class="custom-alert">
     ...
     </div>
@@ -53,50 +53,25 @@
                 </div>
                 
             </div>
-            <div class="classes-tab hidden">
+            <div class="classes-tab">
                 <div class="classes-header">
                     <label>Выбор класса</label>
                     <button class="class-button class-button-add" title="Создать пустой класс" onclick="createEmptyClagnoscoClass();"></button>
                 </div>
 
                 <div class="classes-list" id="classesList">
-                    <div class="class-selection">
-                        <button class="class-index-name-size" onclick="selectClagnoscoClass(this);">
-                            <div class="class-index-name-size-index">№1</div>
-                            <div class="class-index-name-size-name">Class A</div>
-                            <div class="class-index-name-size-size">(2)</div>
-                        </button>
-                        <button class="class-button class-button-copy" title="Копировать класс" onclick="copyClagnoscoClass(this);"></button>
-                        <button class="class-button class-button-delete" title="Удалить класс" onclick="deleteClagnoscoClass(this);"></button>
-                    </div>
-                    <div class="class-selection class-selected">
-                        <button class="class-index-name-size" disabled onclick="selectClagnoscoClass(this);">
-                            <div class="class-index-name-size-index">№2</div>
-                            <div class="class-index-name-size-name">Class B</div>
-                            <div class="class-index-name-size-size">(1)</div>
-                        </button>
-                        <button class="class-button class-button-copy" title="Копировать класс" onclick="copyClagnoscoClass(this);"></button>
-                        <button class="class-button class-button-delete" title="Удалить класс" onclick="deleteClagnoscoClass(this);"></button>
-                    </div>
-                    <div class="class-selection">
-                        <button class="class-index-name-size" onclick="selectClagnoscoClass(this);">
-                            <div class="class-index-name-size-index">№3</div>
-                            <div class="class-index-name-size-name name-empty"></div>
-                            <div class="class-index-name-size-size">(4)</div>
-                        </button>
-                        <button class="class-button class-button-copy" title="Копировать класс" onclick="copyClagnoscoClass(this);"></button>
-                        <button class="class-button class-button-delete" title="Удалить класс" onclick="deleteClagnoscoClass(this);"></button>
-                    </div>
                 </div>
             </div>
         </div>
+            <div class="class-tab-loading">
+                <div class="rotating-image"></div>
+            </div>
             <div class="class-tab" id="classTab">
                 <div class="class-name-tab" id="classNameTab">
                     <div class="class-name-tab-main">
-                        <div class="class-name-tab-main-index">№2</div>
-                        <!-- <div class="class-name-tab-main-name name-empty"></div> -->
-                        <div class="class-name-tab-main-name">Class B</div>
-                        <div class="class-name-tab-main-size">(1)</div>
+                        <div class="class-name-tab-main-index">№0</div>
+                        <div class="class-name-tab-main-name name-empty"></div>
+                        <div class="class-name-tab-main-size">(0)</div>
                     </div>
                     <button class="class-button class-button-edit class-button-bigger"  title="Переименовать класс" onclick="renameClagnoscoClass();"></button>
                     <button class="class-button class-button-all-select class-button-bigger" title="Выбрать все изображения" onclick="selectAllImages();"></button>
@@ -106,63 +81,6 @@
                     <button class="class-button class-button-delete class-button-bigger" title="Удалить класс" onclick="deleteClagnoscoClass();"></button>
                 </div>
                 <div class="images-tab" id="imagesTab">
-                
-                    <div class="image-container image-selected">
-                        <div class="image-display" onclick="imageSelector(this, force=true, recount=true, image=true);">
-                            <img draggable="false" src="http://127.0.0.1:5000/img_small/C:\!project-dataset\z_images_small\dc79d0114da3a0631c686797d52ae72a.jpg">
-                        </div>
-                        <div class="image-meta">
-                            <div class="image-meta-name" onclick="openFullImage(this);" title='Открыть «dc79d0114da3a0631c686797d52ae72a.jpg» в новой вкладке'>dc79d0114da3a0631c686797d52ae72a.jpg</div>
-                            <div class="image-meta-chance-tab">
-                                <div>Вероятность:</div>
-                                <div class="image-meta-chance-value" title="1.0">100.00%</div>
-                                <div>Выбрать:</div>
-                                <input type="checkbox" class="image-meta-chance-checkbox" onclick="imageSelector(this);" checked/>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="image-container">
-                        <div class="image-display" onclick="imageSelector(this, force=true, recount=true, image=true);">
-                            <img draggable="false" src="http://127.0.0.1:5000/img_small/C:\!project-dataset\z_images_small\dc47bf4a8898c4f07ae13e311ac8fea3.jpg">
-                        </div>
-                        <div class="image-meta">
-                            <div class="image-meta-name" onclick="openFullImage(this);" title='Открыть «Image File.jpg» в новой вкладке'>Image File.jpg</div>
-                            <div class="image-meta-chance-tab">
-                                <div>Вероятность:</div>
-                                <div class="image-meta-chance-value" title="0.4">40.00%</div>
-                                <div>Выбрать:</div>
-                                <input type="checkbox" class="image-meta-chance-checkbox" onclick="imageSelector(this);"/>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="image-container">
-                        <div class="image-display" onclick="imageSelector(this, force=true, recount=true, image=true);">
-                            <img draggable="false" src="http://127.0.0.1:5000/img_small/C:\!project-dataset\z_images_small\d8843534296085c7662cb09addcc734a.webp">
-                        </div>
-                        <div class="image-meta">
-                            <div class="image-meta-name" onclick="openFullImage(this);" title='Открыть «img.webp» в новой вкладке'>img.webp</div>
-                            <div class="image-meta-chance-tab">
-                                <div>Вероятность:</div>
-                                <div class="image-meta-chance-value" title="0.1101">11.01%</div>
-                                <div>Выбрать:</div>
-                                <input type="checkbox" class="image-meta-chance-checkbox" onclick="imageSelector(this);"/>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="image-container">
-                        <div class="image-display" onclick="imageSelector(this, force=true, recount=true, image=true);">
-                            <img draggable="false" src="http://127.0.0.1:5000/img_small/C:\!project-dataset\z_images_small\da419ceda3431f5112a05671ec97389c.png">
-                        </div>
-                        <div class="image-meta">
-                            <div class="image-meta-name" onclick="openFullImage(this);" title='Открыть «da419ceda3431f5112a05671ec97389c.png» в новой вкладке'>da419ceda3431f5112a05671ec97389c.png</div>
-                            <div class="image-meta-chance-tab">
-                                <div>Вероятность:</div>
-                                <div class="image-meta-chance-value" title="0.11">11.00%</div>
-                                <div>Выбрать:</div>
-                                <input type="checkbox" class="image-meta-chance-checkbox" onclick="imageSelector(this);"/>
-                            </div>
-                        </div>
-                    </div>
                 </div>
             </div>
         </div>

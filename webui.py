@@ -1,3 +1,4 @@
+import logging
 from flask import Flask, render_template, send_file, abort, request, jsonify
 import os
 from PIL import Image
@@ -24,6 +25,56 @@ class AppState:
 
 app = Flask(__name__, static_folder='webui/static', template_folder='webui/templates')
 app.state = AppState()
+
+class ImageRouteFilter(logging.Filter):
+    def filter(self, record):
+        message_sources = []
+        
+        if hasattr(record, 'getMessage'):
+            try:
+                formatted_msg = record.getMessage()
+                message_sources.append(formatted_msg)
+            except:
+                pass
+        
+        if hasattr(record, 'msg'):
+            message_sources.append(str(record.msg))
+        
+        if hasattr(record, 'msg') and hasattr(record, 'args') and record.args:
+            try:
+                formatted_with_args = record.msg % record.args
+                message_sources.append(str(formatted_with_args))
+            except:
+                pass
+        
+        for msg in message_sources:
+            if msg and isinstance(msg, str):
+                if 'GET /' in msg:
+                    try:
+                        path_start = msg.find('GET /') + 4
+                        path_end = msg.find(' ', path_start)
+                        if path_end == -1:
+                            path_end = msg.find('"', path_start)
+                        if path_end == -1:
+                            path_end = len(msg)
+                        
+                        path = msg[path_start:path_end]
+                        
+                        if path.startswith('/img/') or path.startswith('/img_small/') or path.startswith('/static/'):
+                            return False
+                    except:
+                        blocked_patterns = ['GET /img/', 'GET /img_small/', 'GET /static/']
+                        if any(pattern in msg for pattern in blocked_patterns):
+                            return False
+        return True
+
+
+werkzeug_logger = logging.getLogger('werkzeug')
+werkzeug_logger.addFilter(ImageRouteFilter())
+
+root_logger = logging.getLogger()
+root_logger.addFilter(ImageRouteFilter())
+
 
 @app.route('/')
 def index():
@@ -65,6 +116,12 @@ def fetch():
         result = clear_cache_webui(data)
     elif data['command'] == 'modelsInFolder':
         result = models_in_folder()
+    elif data['command'] == 'addEmptyClagnoscoClass':
+        result = add_empty_clagnosco_class()
+    elif data['command'] == 'copyClagnoscoClass':
+        result = copy_clagnosco_class(data)
+    elif data['command'] == 'deleteClagnoscoClass':
+        result = delete_clagnosco_class(data)
     return jsonify(result)
 
 def clear_cache_webui(data):
@@ -124,7 +181,7 @@ def launch_processing(data):
     except:
         state.status = {
             "status": "error",
-            "type": "launch error",
+            "type": "Launch error",
             "message": f"Ошибка запуска",
             "time": time() - start_time
             }
@@ -187,6 +244,69 @@ def models_in_folder():
                     }
     return state.status
 
+def add_empty_clagnosco_class():
+    start_time = time()
+    state = app.state
+    
+    try:
+        empty_clagnosco_class = ("Пустой класс", tuple((i, 0.0, False) for i in state.img_names))
+        state.img_clusters.append(empty_clagnosco_class)
+
+        state.status = {"status": "emptyClagnoscoClassAdded",
+                        "time": time() - start_time
+                        }
+        return state.status
+    except:
+        state.status = {
+            "status": "error",
+            "type": "Adding empty class error",
+            "message": f"Ошибка добаления пустого класса",
+            "time": time() - start_time
+            }
+        return state.status
+
+def copy_clagnosco_class(data):
+    start_time = time()
+    state = app.state
+    
+    try:
+        clagnosco_class_id = data["id"]
+        clagnosco_class_copy = (data["newName"], state.img_clusters[clagnosco_class_id][1])
+        state.img_clusters.append(clagnosco_class_copy)
+
+        state.status = {"status": "clagnoscoClassCopied",
+                        "time": time() - start_time
+                        }
+        return state.status
+    except:
+        state.status = {
+            "status": "error",
+            "type": "Copying class error",
+            "message": f"Ошибка копирования класса",
+            "time": time() - start_time
+            }
+        return state.status
+
+def delete_clagnosco_class(data):
+    start_time = time()
+    state = app.state
+    
+    try:
+        clagnosco_class_id = data["id"]
+        state.img_clusters.pop(clagnosco_class_id)
+
+        state.status = {"status": "clagnoscoClassDeleted",
+                        "time": time() - start_time
+                        }
+        return state.status
+    except:
+        state.status = {
+            "status": "error",
+            "type": "Deleting class error",
+            "message": f"Ошибка удаления класса",
+            "time": time() - start_time
+            }
+        return state.status
 
 if __name__ == '__main__':
     app.run(debug=True)
