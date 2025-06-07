@@ -7,3 +7,5 @@ requests
 tqdm
 scikit-learn
 flask
+kneed
+logging
