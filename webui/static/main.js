@@ -116,6 +116,8 @@ async function sendToServer(data, isBasic=false) {
 }
 
 function clearCache(confirmClearingCache=true) {
+    let cacheButton = document.getElementById("initButtonClearCache");
+    let launchButton = document.getElementById("initButtonProcess");
     let imgDir = document.getElementById("localFolder");
     
     if (confirmClearingCache) {
@@ -125,12 +127,16 @@ function clearCache(confirmClearingCache=true) {
             return null;
         }
     }
+    cacheButton.disabled = true;
+    launchButton.disabled = true;
     let instruction = {'command': 'clearCache',
                        'imgDir': imgDir.value};
 
     sendToServer(instruction).then(answer => {
         if (answer["status"] === "cacheCleared") {
             showCustomAlert("Кэш успешно очищен в выбранной директории", timeout=5000);
+            cacheButton.disabled = false;
+            launchButton.disabled = false;
         } else if (answer["status"] === "error") {
             alert(answer["message"]);
         } else {
@@ -138,7 +144,8 @@ function clearCache(confirmClearingCache=true) {
         }
     }).catch(error => {
         console.error("Ошибка обработки запроса:", error);
-        resetAll(confirmResetAll=false);
+        cacheButton.disabled = false;
+        launchButton.disabled = false;
     });
 }
 
@@ -265,7 +272,7 @@ function clusterImages(imagesCount=-1) {
 
             showCustomAlert(`Все изображения обработаны (${clagnoscoImagesNames.length}). Было найдено следующее количество кластеров: ${clagnoscoClassesSizes.length}`);
             populateClagnoscoClasses();
-            populateImages();
+            // populateImages();
 
             let menuStatusInit = document.getElementById("menuStatusInit");
             let menuStatusProcessing = document.getElementById("menuStatusProcessing");
@@ -277,6 +284,10 @@ function clusterImages(imagesCount=-1) {
 
         } else if (answer["status"] === "error") {
             alert(answer["message"]);
+
+            // if (answer["type"] === "Too few images") {
+            //     showCustomAlert(answer["message"])
+            // }
             
             resetAll(confirmResetAll=false);
         } else {
