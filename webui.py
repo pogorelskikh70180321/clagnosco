@@ -1,5 +1,5 @@
 from flask import Flask, render_template, send_file, abort, request, jsonify
-# import logging
+import logging
 import os
 from PIL import Image
 import io
@@ -8,9 +8,6 @@ from time import time
 from autoencoder import *
 from cluster import *
 
-
-if not os.path.exists(SAVE_FOLDER):
-    os.makedirs(SAVE_FOLDER)
 
 class AppState:
     def __init__(self):
@@ -26,54 +23,54 @@ class AppState:
 app = Flask(__name__, static_folder='webui/static', template_folder='webui/templates')
 app.state = AppState()
 
-# class ImageRouteFilter(logging.Filter):
-#     def filter(self, record):
-#         message_sources = []
+class ImageRouteFilter(logging.Filter):
+    def filter(self, record):
+        message_sources = []
         
-#         if hasattr(record, 'getMessage'):
-#             try:
-#                 formatted_msg = record.getMessage()
-#                 message_sources.append(formatted_msg)
-#             except:
-#                 pass
+        if hasattr(record, 'getMessage'):
+            try:
+                formatted_msg = record.getMessage()
+                message_sources.append(formatted_msg)
+            except:
+                pass
         
-#         if hasattr(record, 'msg'):
-#             message_sources.append(str(record.msg))
+        if hasattr(record, 'msg'):
+            message_sources.append(str(record.msg))
         
-#         if hasattr(record, 'msg') and hasattr(record, 'args') and record.args:
-#             try:
-#                 formatted_with_args = record.msg % record.args
-#                 message_sources.append(str(formatted_with_args))
-#             except:
-#                 pass
+        if hasattr(record, 'msg') and hasattr(record, 'args') and record.args:
+            try:
+                formatted_with_args = record.msg % record.args
+                message_sources.append(str(formatted_with_args))
+            except:
+                pass
         
-#         for msg in message_sources:
-#             if msg and isinstance(msg, str):
-#                 if 'GET /' in msg:
-#                     try:
-#                         path_start = msg.find('GET /') + 4
-#                         path_end = msg.find(' ', path_start)
-#                         if path_end == -1:
-#                             path_end = msg.find('"', path_start)
-#                         if path_end == -1:
-#                             path_end = len(msg)
+        for msg in message_sources:
+            if msg and isinstance(msg, str):
+                if 'GET /' in msg:
+                    try:
+                        path_start = msg.find('GET /') + 4
+                        path_end = msg.find(' ', path_start)
+                        if path_end == -1:
+                            path_end = msg.find('"', path_start)
+                        if path_end == -1:
+                            path_end = len(msg)
                         
-#                         path = msg[path_start:path_end]
+                        path = msg[path_start:path_end]
                         
-#                         if path.startswith('/img/') or path.startswith('/img_small/') or path.startswith('/static/'):
-#                             return False
-#                     except:
-#                         blocked_patterns = ['GET /img/', 'GET /img_small/', 'GET /static/']
-#                         if any(pattern in msg for pattern in blocked_patterns):
-#                             return False
-#         return True
+                        if path.startswith('/img/') or path.startswith('/img_small/') or path.startswith('/static/'):
+                            return False
+                    except:
+                        blocked_patterns = ['GET /img/', 'GET /img_small/', 'GET /static/']
+                        if any(pattern in msg for pattern in blocked_patterns):
+                            return False
+        return True
 
 
-# werkzeug_logger = logging.getLogger('werkzeug')
-# werkzeug_logger.addFilter(ImageRouteFilter())
+werkzeug_logger = logging.getLogger('werkzeug')
+werkzeug_logger.addFilter(ImageRouteFilter())
 
-# root_logger = logging.getLogger()
-# root_logger.addFilter(ImageRouteFilter())
+root_logger = logging.getLogger()
+root_logger.addFilter(ImageRouteFilter())
 
 
 @app.route('/')
@@ -175,6 +172,9 @@ def launch_processing(data):
             if data['modelName'] == "download":
                 state.model, _ = model_loader("download")
             else:
+                if not os.path.exists(SAVE_FOLDER):
+                    os.makedirs(SAVE_FOLDER)
+
                 selected_model_dir = os.path.join(SAVE_FOLDER, data['modelName'])
                 if os.path.isfile(selected_model_dir):
                     try:
@@ -217,11 +217,21 @@ def cluster_images():
     images_and_latents, _, _ = images_to_latent(image_folder=state.img_dir,
                                                 model=state.model,
                                                 caching=state.caching,
-                                                ignore_errors=True)
+                                                ignore_errors=True,
+                                                print_process=True)
     print("images_to_latent завершено")
+
+    if len(images_and_latents) < 2:
+        state.status = {
+            "status": "error",
+            "type": "Too few images",
+            "message": f"Было найдено данное количество изображений: {len(images_and_latents)}. Требуется как минимум 2.",
+            "time": time() - start_time
+            }
+        return state.status
     
     state.img_names = [item[0] for item in images_and_latents]
-    state.img_clusters = cluster_latent_vectors(images_and_latents)
+    state.img_clusters = cluster_latent_vectors(images_and_latents, print_process=True)
     print("cluster_latent_vectors завершено")
     cluster_sizes = cluster_measuring(state.img_clusters)
     print("cluster_measuring завершено")
@@ -251,6 +261,8 @@ def models_in_folder():
     start_time = time()
     state = app.state
 
+    if not os.path.exists(SAVE_FOLDER):
+        os.makedirs(SAVE_FOLDER)
     state.status = {"status": "readyToInit",
                     "modelNames": [f for f in os.listdir(SAVE_FOLDER) if f.endswith('.pt')],
                     "time": time() - start_time

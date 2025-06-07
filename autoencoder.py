@@ -464,7 +464,7 @@ def delete_untrained_loss_log_files():
                 print(f"Ошибка при удалении файла {file_path}: {e}")
 
 
-def images_to_latent(image_folder, model=None, caching=False, ignore_errors=True):
+def images_to_latent(image_folder, model=None, caching=False, ignore_errors=True, print_process=False):
     """
     Преобразование изображений из папки в латентные векторы с помощью модели автоэнкодера.
     Аргументы:
@@ -472,6 +472,7 @@ def images_to_latent(image_folder, model=None, caching=False, ignore_errors=True
         model: ClagnoscoAutoencoder или str (сама модель, путь к модели или URL)
         caching: bool (по умолчанию False) - кэшировать и использовать латентные векторы в файлах _latent.npy)
         ignore_errors: bool (по умолчанию True) - ингорировать файлы с ошибками
+        print_process: bool (по умолчанию False) -- печатает в консоль процесс выполнения
     Возвращает:
         images_and_latents: список кортежей (путь к изображению, латентный вектор)
         errored_images: список изображений, которых не получилось обработать
@@ -486,7 +487,14 @@ def images_to_latent(image_folder, model=None, caching=False, ignore_errors=True
 
     images_and_latents = []
     errored_images = []
-    for filename in os.listdir(image_folder):
+    filenames = [i for i in os.listdir(image_folder) if os.path.isfile(os.path.join(image_folder, i)) and \
+                                                        not i.endswith("_latent.npy")]
+    
+    if print_process:
+        print("Извлечение скрытых признаков у изображений в папке")
+        filenames = tqdm(filenames)
+    
+    for filename in filenames:
         try:
             if caching:
                 latent_path = os.path.join(image_folder, filename + "_latent.npy")
