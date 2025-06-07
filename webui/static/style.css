@@ -166,6 +166,15 @@ html, body {
     background-color: #0056b3;
 }
 
+.init-btn-import-data {
+    background-color: #00b8b5;
+    color: white;
+}
+
+.init-btn-import-data:hover {
+    background-color: #008b88;
+}
+
 .init-btn-cancel {
     background-color: #ff0000;
     color: white;

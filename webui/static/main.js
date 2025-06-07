@@ -117,6 +117,7 @@ async function sendToServer(data, isBasic=false) {
 
 function clearCache(confirmClearingCache=true) {
     let cacheButton = document.getElementById("initButtonClearCache");
+    let importButton = document.getElementById("initButtonImportData");
     let launchButton = document.getElementById("initButtonProcess");
     let imgDir = document.getElementById("localFolder");
     
@@ -128,6 +129,7 @@ function clearCache(confirmClearingCache=true) {
         }
     }
     cacheButton.disabled = true;
+    importButton.disabled = true;
     launchButton.disabled = true;
     let instruction = {'command': 'clearCache',
                        'imgDir': imgDir.value};
@@ -145,6 +147,7 @@ function clearCache(confirmClearingCache=true) {
     }).catch(error => {
         console.error("Ошибка обработки запроса:", error);
         cacheButton.disabled = false;
+        importButton.disabled = false;
         launchButton.disabled = false;
     });
 }
@@ -202,7 +205,14 @@ function resetAll(confirmResetAll=true) {
 }
 
 
-function launchProcessing() {
+function launchProcessing(confirmLaunchProcessing=true) {
+    if (confirmLaunchProcessing) {
+        const confirmStatus = window.confirm(`Запустить обработку избражений из выбранной папки в классы?`);
+        if (!confirmStatus) {
+            return null;
+        }
+    }
+
     safeReload = false;
 
     let imgDir = document.getElementById("localFolder");
@@ -850,3 +860,6 @@ function deleteClagnoscoClassServer(clagnoscoClassID, currentClagnoscoClass, isS
     });
 }
 
+function importData() {
+    // !!!!!!!!!!!!
+}
