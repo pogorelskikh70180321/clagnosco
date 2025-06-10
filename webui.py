@@ -124,6 +124,8 @@ def fetch():
         result = models_in_folder()
     elif data['command'] == 'addEmptyClagnoscoClass':
         result = add_empty_clagnosco_class()
+    elif data['command'] == 'createRestClagnoscoClass':
+        result = create_rest_clagnosco_class()
     elif data['command'] == 'copyClagnoscoClass':
         result = copy_clagnosco_class(data)
     elif data['command'] == 'deleteClagnoscoClass':
@@ -289,6 +291,41 @@ def add_empty_clagnosco_class():
             "time": time() - start_time
             }
         return state.status
+
+def create_rest_clagnosco_class():
+    start_time = time()
+    state = app.state
+    
+    try:
+        exclude = set()
+        for cluster in state.img_clusters:
+            for image_prob in cluster[1]:
+                if image_prob[2]:
+                    exclude.add(image_prob[0])
+        rest_images = [i for i in state.img_names if i not in exclude]
+
+        rest_images_list = [(i, 1.0, True) for i in sorted(rest_images)]
+        exclude_list = [(i, 0.0, False) for i in sorted(exclude)]
+
+
+        rest_clagnosco_class = ("Класс из оставшихся элементов", tuple(rest_images_list + exclude_list))
+        state.img_clusters.append(rest_clagnosco_class)
+
+        state.status = {"status": "restClagnoscoClassCreated",
+                        "name": rest_clagnosco_class[0],
+                        "size": len(rest_images_list),
+                        "time": time() - start_time
+                        }
+        return state.status
+    except:
+        state.status = {
+            "status": "error",
+            "type": "Adding empty class error",
+            "message": f"Ошибка добаления пустого класса",
+            "time": time() - start_time
+            }
+        return state.status
+
 
 def copy_clagnosco_class(data):
     start_time = time()

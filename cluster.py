@@ -8,15 +8,15 @@ import warnings
 warnings.filterwarnings('ignore')
 
 
-def determine_optimal_clusters_elbow(latents: np.ndarray, max_k: int = 30) -> int:
+def determine_optimal_clusters_elbow(latents: np.ndarray) -> int:
     """Определить оптимальное количество кластеров, используя метод локтя."""
     n_samples = len(latents)
     if n_samples < 3:
         return 2
     
-    # k_range = range(2, max_k + 1)
-    max_k = max(4, min(len(latents) - 1, (len(latents) // 10) + 2, max_k))
-    k_range = range(2, min(max_k + 1, len(latents), 100))
+    max_k = min(len(latents), (len(latents) // 5) + 2, 100)
+    k_range = range(2, max_k + 1)
+    
     inertias = []
     
     for k in tqdm(k_range):
@@ -56,8 +56,7 @@ def cluster_latent_vectors(images_and_latents: List[Tuple[str, np.ndarray]], pri
     latents_scaled = scaler.fit_transform(latents)
     
     # Расчёт оптимального количества k с помощью метода локтя
-    max_k = min(len(filenames), (len(filenames) // 20) + 2, 100)
-    optimal_k = determine_optimal_clusters_elbow(latents_scaled, max_k=len(filenames))
+    optimal_k = determine_optimal_clusters_elbow(latents_scaled)
     print("optimal_k (Расчёт оптимального количества k с помощью метода локтя) завершено") if print_process else None
     
     # K-means центры кластеров
@@ -72,13 +71,13 @@ def cluster_latent_vectors(images_and_latents: List[Tuple[str, np.ndarray]], pri
         distances[:, i] = np.linalg.norm(latents_scaled - center, axis=1)
     print("distances (Расчёт расстояний от центров кластеров каждой точки) завершено") if print_process else None
     
-    # Расчёт адаптивного порог для каждого кластера (75-ый процентиль)
+    # Расчёт адаптивного порога для каждого кластера (75-ый процентиль)
     cluster_thresholds = []
     for cluster_id in range(optimal_k):
         cluster_distances = distances[:, cluster_id]
         threshold = np.percentile(cluster_distances, 75)  # distance_percentile=75
         cluster_thresholds.append(threshold)
-    print("cluster_thresholds (Расчёт адаптивного порог для каждого кластера) завершено") if print_process else None
+    print("cluster_thresholds (Расчёт адаптивного порога для каждого кластера) завершено") if print_process else None
     
     # Преобразование расстояний в вероятности с помощью адаптивных порогов
     probabilities = np.zeros_like(distances)

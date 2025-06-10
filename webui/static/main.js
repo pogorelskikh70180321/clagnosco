@@ -504,6 +504,32 @@ function createEmptyClagnoscoClass(confirmCreatingEmpty=true) {
     addEmptyClagnoscoClassServer();
 }
 
+function createRestClagnoscoClass(confirmCreatingRest=true) {
+    if (confirmCreatingRest) {
+        const confirmStatus = window.confirm(`Создать новый класс из элементов, не входящих ни в один класс?`);
+        if (!confirmStatus) {
+            return null;
+        }
+    }
+
+    //!!!!! Send classes state
+
+    let instruction = {'command': 'createRestClagnoscoClass'};
+    
+    return sendToServer(instruction).then(answer => {
+        if (answer["status"] === "restClagnoscoClassCreated") {
+            baseAddClagnoscoClassTemplate(nameText=answer["name"], sizeText=answer["size"]);
+        } else if (answer["status"] === "error") {
+            alert(answer["message"]);
+        } else {
+            // alert("Странный ответ сервера.");
+        }
+    }).catch(error => {
+        console.error("Ошибка обработки запроса:", error);
+    });
+}
+
+
 function copyClagnoscoClass(currentButtonCopy=undefined, confirmCopying=true) {
     let currentClagnoscoClass;
     let currentButton;
@@ -860,6 +886,8 @@ function deleteClagnoscoClassServer(clagnoscoClassID, currentClagnoscoClass, isS
     });
 }
 
+
 function importData() {
-    // !!!!!!!!!!!!
+    // !!!!!!!!
 }
+

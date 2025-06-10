@@ -474,6 +474,14 @@ html, body {
 .classes-header label {
     font-weight: bold;
     font-size: 14px;
+    display: flex;
+    align-items: center;
+    flex: 1;
+    margin-left: 2px;
+    text-align: left;
+    gap: 4px;
+    height: 28px;
+    min-width: 0;
 }
 
 .class-button-add {
@@ -486,6 +494,18 @@ html, body {
 }
 .class-button-add::before {
     background-image: url('/static/svg/add.svg');
+}
+
+.class-button-class-not-element {
+    background-color: #c300ff;
+    color: white;
+}
+.class-button-class-not-element:hover {
+    background-color: #d95cff;
+    outline: 2px solid #c300ff;
+}
+.class-button-class-not-element::before {
+    background-image: url('/static/svg/class_not_element.svg');
 }
 
 .class-button-v {
@@ -513,12 +533,12 @@ html, body {
 }
 
 .class-button-percent {
-    background-color: #a2b100;
+    background-color: #b9bc00;
     color: white;
 }
 .class-button-percent:hover {
-    background-color: #c0cb44;
-    outline: 2px solid #a2b100;
+    background-color: #dadd3e;
+    outline: 2px solid #b9bc00;
 }
 .class-button-percent::before {
     background-image: url('/static/svg/percent.svg');
