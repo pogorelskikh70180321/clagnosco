@@ -383,8 +383,22 @@ function currentSelectedClagnoscoClassID() {
 }
 
 function selectClagnoscoClass(elemBtn) {
-    deselectClagnoscoClass(withLoading=true, onlyDeselect=false).then(() => {
-        disableAllClagnoscoClasses();
+    disableAllClagnoscoClasses();
+    clagnoscoClassImagesSelectionUpdate().then(answerUpdate => {
+        let classSelectedElement = document.getElementsByClassName('class-selected');
+        if (classSelectedElement.length !== 0) {
+            classSelectedElement[0].classList.remove('class-selected');
+        }
+        
+        const classTabLoading = document.getElementsByClassName("class-tab-loading")[0];
+        classTabLoading.classList.add('hidden');
+        const classTab = document.getElementById("classTab");
+        classTab.classList.add('hidden');
+        classTabLoading.classList.add('hidden');
+
+        elemBtn.parentElement.classList.add('class-selected');
+        return true;
+    }).then(() => {
         const classTabLoading = document.getElementsByClassName("class-tab-loading")[0];
         const classTab = document.getElementById("classTab");
         classTabLoading.classList.remove('hidden');
@@ -410,8 +424,6 @@ function selectClagnoscoClass(elemBtn) {
 
         let idText = parseInt(nameTabID.textContent.replace(/[^0-9]/g, '')) - 1;
         imageProbsOrder(idText).then(() => {
-            elemBtn.parentElement.classList.add('class-selected');
-
             classTabLoading.classList.add('hidden');
             classTab.classList.remove('hidden');
             enableAllClagnoscoClasses();
@@ -426,43 +438,30 @@ function selectClagnoscoClass(elemBtn) {
     });
 }
 
-async function deselectClagnoscoClass(withLoading=false, onlyDeselect=true) {
+function deselectClagnoscoClass() {
+    disableAllClagnoscoClasses();
     clagnoscoClassImagesSelectionUpdate().then(answerUpdate => {
-        disableAllClagnoscoClasses();
         let classSelectedElement = document.getElementsByClassName('class-selected');
         if (classSelectedElement.length !== 0) {
             classSelectedElement[0].classList.remove('class-selected');
         }
 
-        if (answerUpdate !== -1) {
-            const classTabLoading = document.getElementsByClassName("class-tab-loading")[0];
-            const classTab = document.getElementById("classTab");
-            classTab.classList.add('hidden');
-            if (withLoading) {
-                classTabLoading.classList.remove('hidden');
-            } else {
-                classTabLoading.classList.add('hidden');
-            }
-            if (onlyDeselect) {
-                enableAllClagnoscoClasses();
-            }
-            return true;
-        } else {
+
+        if (answerUpdate === -1) {
             document.getElementById("classTab").classList.add('hidden');
-            const classTabLoading = document.getElementsByClassName("class-tab-loading")[0];
-            classTabLoading.classList.add('hidden');
-            const classTab = document.getElementById("classTab");
-            classTab.classList.add('hidden');
-            if (withLoading) {
-                classTabLoading.classList.remove('hidden');
-            } else {
-                classTabLoading.classList.add('hidden');
-            }
-            if (onlyDeselect) {
-                enableAllClagnoscoClasses();
-            }
-            return true;
         }
+        
+        const classTabLoading = document.getElementsByClassName("class-tab-loading")[0];
+        classTabLoading.classList.add('hidden');
+        const classTab = document.getElementById("classTab");
+        classTab.classList.add('hidden');
+        if (withLoading) {
+            classTabLoading.classList.remove('hidden');
+        } else {
+            classTabLoading.classList.add('hidden');
+        }
+        enableAllClagnoscoClasses();
+        return true;
     });
 }
 
@@ -758,6 +757,22 @@ function setPercentImages(newPercent=null) {
     updateCheckedImagesCount();
 }
 
+function inverseImages(confirmInverseImages=true) {
+    if (confirmInverseImages) {
+        const confirmStatus = window.confirm(`Инвертировать выделение всем изображениям?`);
+        if (!confirmStatus) {
+            return null;
+        }
+    }
+    
+    let imagesInfo = collectImagesInfo();
+    for (let i = 0; i < imagesInfo.length; i++) {
+        imageSelector(imagesInfo[i][0].getElementsByClassName("image-meta-chance-checkbox")[0],
+                      force=true, recount=false);
+    }
+    updateCheckedImagesCount();
+}
+
 function updateCheckedImagesCount() {
     if (document.getElementById("classTab").classList.contains("hidden")) {
         return null;
@@ -815,12 +830,12 @@ function populateImages(probs=undefined) {
 
     if (probs === undefined) {
         for (let i = 0; i < clagnoscoImagesNames.length; i++) {
-            baseAddImageContainerTemplate(imageSrc=imgView+imagesFolder+clagnoscoImagesNames[i],
+            baseAddImageContainerTemplate(imageSrc=smallImgView+imagesFolder+clagnoscoImagesNames[i],
                                           imageName=clagnoscoImagesNames[i]);
         }
     } else {
         probs.forEach(([name, prob, isMember]) => {
-            baseAddImageContainerTemplate(imageSrc=imgView+imagesFolder+name,
+            baseAddImageContainerTemplate(imageSrc=smallImgView+imagesFolder+name,
                                           imageName=name,
                                           prob=prob,
                                           isMember=isMember);

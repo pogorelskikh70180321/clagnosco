@@ -303,7 +303,7 @@ html, body {
 .class-name-tab {
     height: 50px;
     display: grid;
-    grid-template-columns: 1fr auto auto auto auto auto auto;
+    grid-template-columns: 1fr auto auto auto auto auto auto auto;
     align-items: center;
     gap: 2px;
     overflow: hidden;
@@ -542,6 +542,18 @@ html, body {
 }
 .class-button-percent::before {
     background-image: url('/static/svg/percent.svg');
+}
+
+.class-button-inverse {
+    background-color: #6338ff;
+    color: white;
+}
+.class-button-inverse:hover {
+    background-color: #8664ff;
+    outline: 2px solid #6338ff; 
+}
+.class-button-inverse::before {
+    background-image: url('/static/svg/inverse.svg');
 }
 
 .class-button-all-select {

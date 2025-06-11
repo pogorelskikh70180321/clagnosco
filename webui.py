@@ -102,12 +102,19 @@ def serve_image_small(filename):
         return abort(404, description='Изображение не найдено')
     try:
         with Image.open(full_path) as img:
+
             img.thumbnail((250, 250))
+            img = img.convert('RGB')
             img_io = io.BytesIO()
-            img_format = img.format if img.format else 'PNG'
-            img.save(img_io, format=img_format)
+            img.save(img_io, format='JPEG', quality=90)
+
+            # img_io = io.BytesIO()
+            # img_format = img.format if img.format else 'PNG'
+            # img.save(img_io, format=img_format)
+
             img_io.seek(0)
-            return send_file(img_io, mimetype=f'image/{img_format.lower()}')
+            return send_file(img_io, mimetype='image/jpeg')
+            # return send_file(img_io, mimetype=f'image/{img_format.lower()}')
     except Exception as e:
         return abort(500, description=f'Ошибка обработки изображения: {e}')
 
