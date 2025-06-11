@@ -1,12 +1,21 @@
+# Информация о ВКР "Clagnosco":
+#  ФИО автора: Погорельских Константин Владимирович
+#  Тема ВКР: «Классификация изображений с помощью искусственного интеллекта (на примере Частного образовательного учреждения высшего образования «Московский университет имени С.Ю. Витте»).»
+#  ВУЗ: ЧОУ ВО «Московский университет им. С.Ю. Витте»
+#  Специальность: Прикладная информатика [09.03.03] Бакалавр
+#  Факультет: Информационных технологий
+#  Специализация / Профиль подготовки: Искусственный интеллект и анализ данных
+#  Учебная группа: ИД 23.3/Б3-21
+
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
 from kneed import KneeLocator
 import numpy as np
 from typing import List, Tuple
 from tqdm import tqdm
+
 import warnings
 warnings.filterwarnings('ignore')
-
 
 def determine_optimal_clusters_elbow(latents: np.ndarray) -> int:
     """Определить оптимальное количество кластеров, используя метод локтя."""

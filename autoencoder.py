@@ -1,3 +1,12 @@
+# Информация о ВКР "Clagnosco":
+#  ФИО автора: Погорельских Константин Владимирович
+#  Тема ВКР: «Классификация изображений с помощью искусственного интеллекта (на примере Частного образовательного учреждения высшего образования «Московский университет имени С.Ю. Витте»).»
+#  ВУЗ: ЧОУ ВО «Московский университет им. С.Ю. Витте»
+#  Специальность: Прикладная информатика [09.03.03] Бакалавр
+#  Факультет: Информационных технологий
+#  Специализация / Профиль подготовки: Искусственный интеллект и анализ данных
+#  Учебная группа: ИД 23.3/Б3-21
+
 from dataset import *
 
 import torch
@@ -8,22 +17,10 @@ from datetime import datetime
 import os
 import requests
 import tempfile
-# from torchmetrics.image import StructuralSimilarityIndexMeasure
-if __name__ == "__main__":
-    from tqdm import tqdm
-else:
-    # from tqdm.notebook import tqdm
-    from tqdm import tqdm
+from tqdm import tqdm
 
-
-# Информация о проекте:
-#  ФИО автора: Погорельских Константин Владимирович
-#  Тема ВКР: «Классификация изображений с помощью искусственного интеллекта (на примере Частного образовательного учреждения высшего образования «Московский университет имени С.Ю. Витте»).»
-#  ВУЗ: ЧОУ ВО «Московский университет им. С.Ю. Витте»
-#  Специальность: Прикладная информатика [09.03.03] Бакалавр
-#  Факультет: Информационных технологий
-#  Специализация / Профиль подготовки: Искусственный интеллект и анализ данных
-#  Учебная группа: ИД 23.3/Б3-21
+import warnings
+warnings.filterwarnings('ignore')
 
 
 # Папка для сохранения моделей и модель на Hugging Face
@@ -158,13 +155,20 @@ class ClagnoscoAutoencoder(nn.Module):
 
 
 def download_and_load_model(url, delete_temp=True):
-    response = requests.get(url)
+    response = requests.get(url, stream=True)
     if response.status_code != 200:
         raise Exception(f"Не удалось загрузить модель из {url}, код состояния: {response.status_code}")
     
+    total_size = int(response.headers.get('content-length', 0))
+
     with tempfile.NamedTemporaryFile(delete=False, suffix=".pt") as tmp_file:
-        tmp_file.write(response.content)
         tmp_path = tmp_file.name
+
+        with tqdm(total=total_size, unit='B', unit_scale=True, desc="Скачивание модели") as pbar:
+            for chunk in response.iter_content(chunk_size=1024):
+                if chunk:
+                    tmp_file.write(chunk)
+                    pbar.update(len(chunk))
 
     model_instance = ClagnoscoAutoencoder()
     model_instance.load_state_dict(torch.load(tmp_path))
@@ -174,9 +178,8 @@ def download_and_load_model(url, delete_temp=True):
             os.remove(tmp_path)
         except Exception as e:
             print(f"Не удалось удалить временный файл: {e}")
-
-    print(f"Загружена модель из URL: {url}")
     return model_instance
+
 
 def model_loader(model=None, first_epoch=0):
     '''
@@ -205,12 +208,12 @@ def model_loader(model=None, first_epoch=0):
             model = ClagnoscoAutoencoder()
         elif model.lower() == "download":
             # Загрузка модели
-            print(f"Загрузка модели...")
+            print(f"Загрузка модели по умолчанию из {HF_MODEL_DOWNLOAD_LINK}")
             model = download_and_load_model(HF_MODEL_DOWNLOAD_LINK)
             first_epoch = -1
         elif model.startswith("http"):
             # Загрузка модели из URL
-            print(f"Загрузка модели из URL...")
+            print(f"Загрузка модели из {model}")
             model = download_and_load_model(model)
             first_epoch = -1
         else:
@@ -249,20 +252,6 @@ def train_autoencoder(transformed_dataset, train_batches, model=None,
     model, first_epoch = model_loader(model=model, first_epoch=first_epoch)
     model.train()
     model.to(DEVICE)
-
-    # # Критерии потерь: MSE + SSIM
-    # # MSELoss и StructuralSimilarityIndexMeasure из torchmetrics
-    # mse_loss = nn.MSELoss()
-    # ssim_metric = StructuralSimilarityIndexMeasure(data_range=1.0).to(DEVICE)
-
-    # ssim_metric_weight = 1/16
-    # mse_loss_weight = 1 - ssim_metric_weight
-
-    # def criterion(pred, target):
-    #     mse = mse_loss(pred, target)
-    #     ssim = ssim_metric(pred, target)
-    #     combined_loss = mse * mse_loss_weight + (1 - ssim) * ssim_metric_weight
-    #     return combined_loss
 
     criterion = nn.MSELoss()
 
