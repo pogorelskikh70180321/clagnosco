@@ -1,12 +1,23 @@
+# Информация о ВКР "Clagnosco":
+#  ФИО автора: Погорельских Константин Владимирович
+#  Тема ВКР: «Классификация изображений с помощью искусственного интеллекта (на примере Частного образовательного учреждения высшего образования «Московский университет имени С.Ю. Витте»).»
+#  ВУЗ: ЧОУ ВО «Московский университет им. С.Ю. Витте»
+#  Специальность: Прикладная информатика [09.03.03] Бакалавр
+#  Факультет: Информационных технологий
+#  Специализация / Профиль подготовки: Искусственный интеллект и анализ данных
+#  Учебная группа: ИД 23.3/Б3-21
+
 from flask import Flask, render_template, send_file, abort, request, jsonify
 import logging
 import os
 from PIL import Image
 import io
 from time import time
-
 from autoencoder import *
 from cluster import *
+
+import warnings
+warnings.filterwarnings('ignore')
 
 
 class AppState:
@@ -126,10 +137,14 @@ def fetch():
         result = add_empty_clagnosco_class()
     elif data['command'] == 'createRestClagnoscoClass':
         result = create_rest_clagnosco_class()
+    elif data['command'] == 'renameClagnoscoClass':
+        result = rename_clagnosco_class(data)
     elif data['command'] == 'copyClagnoscoClass':
         result = copy_clagnosco_class(data)
     elif data['command'] == 'deleteClagnoscoClass':
         result = delete_clagnosco_class(data)
+    elif data['command'] == 'clagnoscoClassImagesSelectionUpdate':
+        result = clagnosco_class_images_selection_update(data)
     return jsonify(result)
 
 def clear_cache_webui(data):
@@ -326,6 +341,30 @@ def create_rest_clagnosco_class():
             }
         return state.status
 
+def rename_clagnosco_class(data):
+    start_time = time()
+    state = app.state
+    
+    try:
+        clagnosco_class_id = data["id"]
+        old_name = state.img_clusters[clagnosco_class_id][0]
+        new_name = data["newName"].strip()
+        state.img_clusters[clagnosco_class_id] = (new_name, state.img_clusters[clagnosco_class_id][1])
+
+        state.status = {"status": "clagnoscoClassRenamed",
+                        "oldName": old_name,
+                        "newName": new_name,
+                        "time": time() - start_time
+                        }
+        return state.status
+    except:
+        state.status = {
+            "status": "error",
+            "type": "Renaming class error",
+            "message": f"Ошибка переименования класса",
+            "time": time() - start_time
+            }
+        return state.status
 
 def copy_clagnosco_class(data):
     start_time = time()
@@ -369,6 +408,41 @@ def delete_clagnosco_class(data):
             "time": time() - start_time
             }
         return state.status
+
+def clagnosco_class_images_selection_update(data):
+    start_time = time()
+    state = app.state
+    
+    try:
+        clagnosco_class_id = data["id"]
+
+        current_cluster = state.img_clusters[clagnosco_class_id][1]
+
+        updated_cluster = []
+        for img_name_webui, selected_webui in data["selection"]:
+            for img_name_server, prob_server, selected_server in current_cluster:
+                if img_name_webui == img_name_server:
+                    updated_cluster.append((img_name_server, prob_server, selected_webui))
+                    break
+        
+        updated_cluster = tuple(updated_cluster)
+
+        state.img_clusters[clagnosco_class_id] = (state.img_clusters[clagnosco_class_id][0], updated_cluster)
+        
+
+        state.status = {"status": "clagnoscoClassImagesSelectionUpdated",
+                        "time": time() - start_time
+                        }
+        return state.status
+    except:
+        state.status = {
+            "status": "error",
+            "type": "Updating selections class error",
+            "message": f"Ошибка обновления выбора в классе",
+            "time": time() - start_time
+            }
+        return state.status
+
 
 if __name__ == '__main__':
     app.run(debug=True)

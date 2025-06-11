@@ -371,79 +371,129 @@ function currentSelectedClagnoscoClass() {
     return document.getElementsByClassName("class-selected")[0];
 }
 
-function selectClagnoscoClass(elemBtn) {
-    const classTabLoading = document.getElementsByClassName("class-tab-loading")[0];
-    const classTab = document.getElementById("classTab");
-    classTabLoading.classList.remove('hidden');
-    classTab.classList.add('hidden');
-
-    let selectedButton = elemBtn;
-    let selectedClagnoscoClass = elemBtn.parentElement;
-    let currentClagnoscoClass = currentSelectedClagnoscoClass();
-    let currentButton;
-
-    if (currentClagnoscoClass !== undefined) {
-        currentButton = currentClagnoscoClass.children[0];
-        currentButton.disabled = false;
-        currentClagnoscoClass.classList.remove('class-selected');
-    }
-
-    selectedButton.disabled = true;
-    selectedClagnoscoClass.classList.add('class-selected');
-
-    // The rest
-    // acceptImageChanges(); sending to server
-
-    let nameTabID = document.getElementsByClassName("class-name-tab-main-index")[0];
-    let nameTabName = document.getElementsByClassName("class-name-tab-main-name")[0];
-    let nameTabSize = document.getElementsByClassName("class-name-tab-main-size")[0];
-    let originName;
-    let selectedButtonChildren = selectedButton.children;
-    
-    nameTabID.textContent = selectedButtonChildren[0].textContent;
-    nameTabSize.textContent = selectedButtonChildren[2].textContent;
-
-    originName = selectedButtonChildren[1].textContent;
-    if (originName === '') {
-        nameTabName.classList.add('name-empty');
+function currentSelectedClagnoscoClassID() {
+    let selectedClagnoscoClass = currentSelectedClagnoscoClass();
+    let idValue;
+    if (selectedClagnoscoClass === undefined) {
+        idValue = -1;
     } else {
-        nameTabName.classList.remove('name-empty');
+        idValue = parseInt(selectedClagnoscoClass.children[0].children[0].textContent.replace(/[^0-9]/g, '')) - 1;
     }
-    nameTabName.textContent = originName;
-    
-    const imagesTab = document.getElementById("imagesTab");
-    
-    imageProbsOrder().then(() => {
-        imagesTab.scrollTop = 0;
-        classTabLoading.classList.add('hidden');
-        classTab.classList.remove('hidden');
-    }).catch(error => {
-        console.error("Error in imageProbsOrder:", error);
-        imagesTab.scrollTop = 0;
-        classTabLoading.classList.add('hidden');
-        classTab.classList.remove('hidden');
-    });
-    // imageProbsOrder();
-
-    // setTimeout(() => {
-    //     classTabLoading.classList.add('hidden');
-    //     classTab.classList.remove('hidden');
-    // }, 10);
+    return idValue;
 }
 
-function deselectClagnoscoClass() {
-    let currentClagnoscoClass = currentSelectedClagnoscoClass();
-    let currentButton;
+function selectClagnoscoClass(elemBtn) {
+    deselectClagnoscoClass(withLoading=true, onlyDeselect=false).then(() => {
+        disableAllClagnoscoClasses();
+        const classTabLoading = document.getElementsByClassName("class-tab-loading")[0];
+        const classTab = document.getElementById("classTab");
+        classTabLoading.classList.remove('hidden');
+        classTab.classList.add('hidden');
 
-    if (currentClagnoscoClass !== undefined) {
-        currentButton = currentClagnoscoClass.children[0];
-        currentButton.disabled = false;
-        currentClagnoscoClass.classList.remove('class-selected');
+        let nameTabID = document.getElementsByClassName("class-name-tab-main-index")[0];
+        let nameTabName = document.getElementsByClassName("class-name-tab-main-name")[0];
+        let nameTabSize = document.getElementsByClassName("class-name-tab-main-size")[0];
+
+        let selectedButton = elemBtn;
+        let selectedButtonChildren = selectedButton.children;
+        
+        nameTabID.textContent = selectedButtonChildren[0].textContent;
+        nameTabSize.textContent = selectedButtonChildren[2].textContent;
+
+        let originName = selectedButtonChildren[1].textContent;
+        if (originName === '') {
+            nameTabName.classList.add('name-empty');
+        } else {
+            nameTabName.classList.remove('name-empty');
+        }
+        nameTabName.textContent = originName;
+
+        let idText = parseInt(nameTabID.textContent.replace(/[^0-9]/g, '')) - 1;
+        imageProbsOrder(idText).then(() => {
+            elemBtn.parentElement.classList.add('class-selected');
+
+            classTabLoading.classList.add('hidden');
+            classTab.classList.remove('hidden');
+            enableAllClagnoscoClasses();
+        }).catch(error => {
+            console.error("Error in imageProbsOrder:", error);
+            elemBtn.parentElement.classList.add('class-selected');
+
+            classTabLoading.classList.add('hidden');
+            classTab.classList.remove('hidden');
+            enableAllClagnoscoClasses();
+        });
+    });
+}
+
+async function deselectClagnoscoClass(withLoading=false, onlyDeselect=true) {
+    clagnoscoClassImagesSelectionUpdate().then(answerUpdate => {
+        disableAllClagnoscoClasses();
+        let classSelectedElement = document.getElementsByClassName('class-selected');
+        if (classSelectedElement.length !== 0) {
+            classSelectedElement[0].classList.remove('class-selected');
+        }
+
+        if (answerUpdate !== -1) {
+            const classTabLoading = document.getElementsByClassName("class-tab-loading")[0];
+            const classTab = document.getElementById("classTab");
+            classTab.classList.add('hidden');
+            if (withLoading) {
+                classTabLoading.classList.remove('hidden');
+            } else {
+                classTabLoading.classList.add('hidden');
+            }
+            if (onlyDeselect) {
+                enableAllClagnoscoClasses();
+            }
+            return true;
+        } else {
+            document.getElementById("classTab").classList.add('hidden');
+            const classTabLoading = document.getElementsByClassName("class-tab-loading")[0];
+            classTabLoading.classList.add('hidden');
+            const classTab = document.getElementById("classTab");
+            classTab.classList.add('hidden');
+            if (withLoading) {
+                classTabLoading.classList.remove('hidden');
+            } else {
+                classTabLoading.classList.add('hidden');
+            }
+            if (onlyDeselect) {
+                enableAllClagnoscoClasses();
+            }
+            return true;
+        }
+    });
+}
+
+function disableAllClagnoscoClasses() {
+    document.getElementsByClassName("class-button-add")[0].disabled = true;
+    document.getElementsByClassName("class-button-class-not-element")[0].disabled = true;
+
+    let clagnoscoClassButtons = document.getElementsByClassName("class-index-name-size");
+    let copyButtons = document.getElementsByClassName("class-button-copy");
+    let deleteButtons = document.getElementsByClassName("class-button-delete");
+    for (let i = 0; i < clagnoscoClassButtons.length; i++) {
+        clagnoscoClassButtons[i].disabled = true;
+        copyButtons[i].disabled = true;
+        deleteButtons[i].disabled = true;
     }
-    
-    document.getElementById("classTab").classList.add('hidden');
-    let classTabLoading = document.getElementsByClassName("class-tab-loading")[0];
-    classTabLoading.classList.add('hidden');
+}
+
+function enableAllClagnoscoClasses() {
+    document.getElementsByClassName("class-button-add")[0].disabled = false;
+    document.getElementsByClassName("class-button-class-not-element")[0].disabled = false;
+
+    let clagnoscoClassButtons = document.getElementsByClassName("class-index-name-size");
+    let copyButtons = document.getElementsByClassName("class-button-copy");
+    let deleteButtons = document.getElementsByClassName("class-button-delete");
+    for (let i = 0; i < clagnoscoClassButtons.length; i++) {
+        if (!clagnoscoClassButtons[i].parentElement.classList.contains("class-selected")) {
+            clagnoscoClassButtons[i].disabled = false;
+        }
+        copyButtons[i].disabled = false;
+        deleteButtons[i].disabled = false;
+    }
 }
 
 function populateClagnoscoClasses() {
@@ -460,7 +510,7 @@ function populateClagnoscoClasses() {
 function renameClagnoscoClass() {
     let currentClagnoscoClass = currentSelectedClagnoscoClass();
     if (currentClagnoscoClass === undefined) {
-        return null;
+        return -1;
     }
 
     let currentClagnoscoClassText;
@@ -471,26 +521,39 @@ function renameClagnoscoClass() {
     if (newName === null) {
         return null;
     }
-    newName = newName.trim();
-    let isNewNameEmpty = newName === '';
-
-    currentClagnoscoClassText.textContent = newName;
-    if (isNewNameEmpty) {
-        currentClagnoscoClassText.classList.add('name-empty');
-    } else {
-        currentClagnoscoClassText.classList.remove('name-empty');
-    }
-
-    let nameTabName = document.getElementsByClassName("class-name-tab-main-name")[0];
-    if (isNewNameEmpty) {
-        nameTabName.classList.add('name-empty');
-    } else {
-        nameTabName.classList.remove('name-empty');
-    }
-    nameTabName.textContent = newName;
-
     
-    // Send changes to server
+    let instruction = {'command': 'renameClagnoscoClass',
+                       'id': currentSelectedClagnoscoClassID(),
+                       'newName': newName,
+                      };
+    return sendToServer(instruction).then(answer => {
+        if (answer["status"] === "clagnoscoClassRenamed") {
+            let isNewNameEmpty = newName === '';
+
+            newName = answer["newName"];
+
+            currentClagnoscoClassText.textContent = newName;
+            if (isNewNameEmpty) {
+                currentClagnoscoClassText.classList.add('name-empty');
+            } else {
+                currentClagnoscoClassText.classList.remove('name-empty');
+            }
+
+            let nameTabName = document.getElementsByClassName("class-name-tab-main-name")[0];
+            if (isNewNameEmpty) {
+                nameTabName.classList.add('name-empty');
+            } else {
+                nameTabName.classList.remove('name-empty');
+            }
+            nameTabName.textContent = newName;
+        } else if (answer["status"] === "error") {
+            alert(answer["message"]);
+        } else {
+            // alert("Странный ответ сервера.");
+        }
+    }).catch(error => {
+        console.error("Ошибка обработки запроса:", error);
+    });
 }
 
 function createEmptyClagnoscoClass(confirmCreatingEmpty=true) {
@@ -511,21 +574,21 @@ function createRestClagnoscoClass(confirmCreatingRest=true) {
             return null;
         }
     }
-
-    //!!!!! Send classes state
-
-    let instruction = {'command': 'createRestClagnoscoClass'};
     
-    return sendToServer(instruction).then(answer => {
-        if (answer["status"] === "restClagnoscoClassCreated") {
-            baseAddClagnoscoClassTemplate(nameText=answer["name"], sizeText=answer["size"]);
-        } else if (answer["status"] === "error") {
-            alert(answer["message"]);
-        } else {
-            // alert("Странный ответ сервера.");
-        }
-    }).catch(error => {
-        console.error("Ошибка обработки запроса:", error);
+    clagnoscoClassImagesSelectionUpdate().then(() => {
+        let instruction = {'command': 'createRestClagnoscoClass'};
+            
+        return sendToServer(instruction).then(answer => {
+            if (answer["status"] === "restClagnoscoClassCreated") {
+                baseAddClagnoscoClassTemplate(nameText=answer["name"], sizeText=answer["size"]);
+            } else if (answer["status"] === "error") {
+                alert(answer["message"]);
+            } else {
+                // alert("Странный ответ сервера.");
+            }
+        }).catch(error => {
+            console.error("Ошибка обработки запроса:", error);
+        });
     });
 }
 
@@ -538,25 +601,28 @@ function copyClagnoscoClass(currentButtonCopy=undefined, confirmCopying=true) {
     } else {
         currentClagnoscoClass = currentButtonCopy.parentElement;
     }
-    currentButton = currentClagnoscoClass.children[0];
-    let currentButtonChildren = currentButton.children;
-    let nameText = currentButtonChildren[1].textContent;
-    let idText = parseInt(currentButtonChildren[0].textContent.replace('№', '', 1)) - 1;
-    let newName = nameText + " — копия";
-    
-    if (confirmCopying) {
-        const confirmStatus = window.confirm(`Копировать класс «${nameText}»?`);
 
-        if (!confirmStatus) {
-            return null;
+    clagnoscoClassImagesSelectionUpdate().then(() => {
+        currentButton = currentClagnoscoClass.children[0];
+        let currentButtonChildren = currentButton.children;
+        let nameText = currentButtonChildren[1].textContent;
+        let idText = parseInt(currentButtonChildren[0].textContent.replace(/[^0-9]/g, '')) - 1;
+        let newName = nameText + " — копия";
+        
+        if (confirmCopying) {
+            const confirmStatus = window.confirm(`Копировать класс «${nameText}»?`);
+
+            if (!confirmStatus) {
+                return null;
+            }
         }
-    }
 
-    let sizeText = bracketsRemoval(currentButtonChildren[2].textContent);
-    copyClagnoscoClassServer(idText, newName, sizeText);
+        let sizeText = bracketsRemoval(currentButtonChildren[2].textContent);
+        copyClagnoscoClassServer(idText, newName, sizeText);
 
-    // acceptImageChanges(); sending to server
-    // Send changes to server
+        // acceptImageChanges(); sending to server
+        // Send changes to server
+    });
 }
 
 function redoIndexing() {
@@ -591,7 +657,7 @@ function deleteClagnoscoClass(currentButtonDelete=undefined, confirmDeleting=tru
     currentButton = currentClagnoscoClass.children[0];
     let currentButtonChildren = currentButton.children;
     let nameText = currentButtonChildren[1].textContent;
-    let idText = parseInt(currentButtonChildren[0].textContent.replace('№', '', 1)) - 1;
+    let idText = parseInt(currentButtonChildren[0].textContent.replace(/[^0-9]/g, '')) - 1;
 
     if (confirmDeleting) {
         const confirmStatus = window.confirm(`Удалить класс «${nameText}»?`);
@@ -613,7 +679,7 @@ function deleteAllClagnoscoClasses(confirmDeletingAll=true) {
         }
     }
 
-    deselectClagnoscoClass();
+    deselectClagnoscoClass(withLoading=false);
     let classesList = document.getElementById('classesList');
     classesList.innerHTML = '';
     
@@ -764,9 +830,10 @@ function populateImages(probs=undefined) {
     updateCheckedImagesCount();
 }
 
-function imageProbsOrder() {
-    let currentClagnoscoClass = currentSelectedClagnoscoClass();
-    let clagnoscoClassID = parseInt(currentClagnoscoClass.children[0].children[0].textContent.replace('№', '', 1)) - 1;
+function imageProbsOrder(clagnoscoClassID=undefined) {
+    if (clagnoscoClassID === undefined) {
+        clagnoscoClassID = currentSelectedClagnoscoClassID();
+    }
 
     let instruction = {'command': 'imageProbsGet',
                        'id': clagnoscoClassID};
@@ -886,6 +953,36 @@ function deleteClagnoscoClassServer(clagnoscoClassID, currentClagnoscoClass, isS
     });
 }
 
+async function clagnoscoClassImagesSelectionUpdate() {
+    const imagesInfo = collectImagesInfo();
+    let imagesSelected = [];
+    let nameTabID = currentSelectedClagnoscoClassID();
+
+    if (nameTabID === -1) {
+        return -1;
+    }
+
+    for (let i = 0; i < imagesInfo.length; i++) {
+        imagesSelected.push([imagesInfo[i][1], imagesInfo[i][3]]);
+    }
+
+    let instruction = {'command': 'clagnoscoClassImagesSelectionUpdate',
+                       'id': nameTabID,
+                       'selection': imagesSelected,
+                      };
+    
+    return sendToServer(instruction).then(answer => {
+        if (answer["status"] === "clagnoscoClassImagesSelectionUpdated") {
+            
+        } else if (answer["status"] === "error") {
+            alert(answer["message"]);
+        } else {
+            // alert("Странный ответ сервера.");
+        }
+    }).catch(error => {
+        console.error("Ошибка обработки запроса:", error);
+    });
+}
 
 function importData() {
     // !!!!!!!!
