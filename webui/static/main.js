@@ -1,16 +1,3 @@
-var safeReload = true;
-var loggingFetch = true;
-var serverConnect = true;
-var serverReconnect = false;
-var reloadNeeded = false;
-
-var clagnoscoClassesSizes = [];
-var clagnoscoImagesNames = [];
-var imagesFolder;
-const imgView = '/img/';
-const smallImgView = '/img_small/';
-
-
 function setupReloadConfirmation() {
     const hiddenForm = document.createElement('form');
     hiddenForm.classList.add("hidden");
@@ -168,6 +155,8 @@ function resetAll(confirmResetAll=true) {
     let loading = document.getElementsByClassName('fullscreen-loader')[0];
     loading.classList.remove('hidden');
 
+    document.getElementsByClassName('save-fullscreen')[0].classList.add('hidden');
+
     let imgDir = document.getElementById("localFolder");
     let modelName = document.getElementById("modelNameSelect");
     let caching = document.getElementById("caching");
@@ -191,17 +180,17 @@ function resetAll(confirmResetAll=true) {
 
     deleteAllImages();
     deleteAllClagnoscoClasses(false);
-    populateModels();
+    populateModels().then(() => {
+        document.getElementsByClassName('classes-tab')[0].classList.add('hidden');
+        document.getElementById('classTab').classList.add('hidden');
 
-    document.getElementsByClassName('classes-tab')[0].classList.add('hidden');
-    document.getElementById('classTab').classList.add('hidden');
+        let classTabLoading = document.getElementsByClassName("class-tab-loading")[0];
+        classTabLoading.classList.add('hidden');
 
-    let classTabLoading = document.getElementsByClassName("class-tab-loading")[0];
-    classTabLoading.classList.add('hidden');
+        safeReload = true;
 
-    safeReload = true;
-
-    loading.classList.add('hidden');
+        loading.classList.add('hidden');
+    });
 }
 
 
@@ -438,14 +427,17 @@ function selectClagnoscoClass(elemBtn) {
     });
 }
 
-function deselectClagnoscoClass() {
+function deselectClagnoscoClass(update=true) {
     disableAllClagnoscoClasses();
-    clagnoscoClassImagesSelectionUpdate().then(answerUpdate => {
+    clagnoscoClassImagesSelectionUpdate(update=update).then(answerUpdate => {
         let classSelectedElement = document.getElementsByClassName('class-selected');
         if (classSelectedElement.length !== 0) {
             classSelectedElement[0].classList.remove('class-selected');
         }
 
+        document.getElementsByClassName("class-name-tab-main-index")[0].textContent = '';
+        document.getElementsByClassName("class-name-tab-main-name")[0].textContent = '';
+        document.getElementsByClassName("class-name-tab-main-size")[0].textContent = '';
 
         if (answerUpdate === -1) {
             document.getElementById("classTab").classList.add('hidden');
@@ -455,11 +447,7 @@ function deselectClagnoscoClass() {
         classTabLoading.classList.add('hidden');
         const classTab = document.getElementById("classTab");
         classTab.classList.add('hidden');
-        if (withLoading) {
-            classTabLoading.classList.remove('hidden');
-        } else {
-            classTabLoading.classList.add('hidden');
-        }
+        classTabLoading.classList.add('hidden');
         enableAllClagnoscoClasses();
         return true;
     });
@@ -678,7 +666,7 @@ function deleteAllClagnoscoClasses(confirmDeletingAll=true) {
         }
     }
 
-    deselectClagnoscoClass(withLoading=false);
+    deselectClagnoscoClass(update=false);
     let classesList = document.getElementById('classesList');
     classesList.innerHTML = '';
     
@@ -870,7 +858,7 @@ function clearModels() {
 }
 
 
-function populateModels(localModelsInclude=true, internetModelDownloadInclude=true) {
+async function populateModels(localModelsInclude=true, internetModelDownloadInclude=true) {
     if (localModelsInclude || internetModelDownloadInclude) {
         clearModels();
     }
@@ -954,7 +942,7 @@ function deleteClagnoscoClassServer(clagnoscoClassID, currentClagnoscoClass, isS
     return sendToServer(instruction).then(answer => {
         if (answer["status"] === "clagnoscoClassDeleted") {
             if (isSelected) {
-                deselectClagnoscoClass();
+                deselectClagnoscoClass(update=false);
             }
             currentClagnoscoClass.remove();
             redoIndexing();
@@ -968,7 +956,7 @@ function deleteClagnoscoClassServer(clagnoscoClassID, currentClagnoscoClass, isS
     });
 }
 
-async function clagnoscoClassImagesSelectionUpdate() {
+async function clagnoscoClassImagesSelectionUpdate(update=true) {
     const imagesInfo = collectImagesInfo();
     let imagesSelected = [];
     let nameTabID = currentSelectedClagnoscoClassID();
@@ -980,7 +968,9 @@ async function clagnoscoClassImagesSelectionUpdate() {
     for (let i = 0; i < imagesInfo.length; i++) {
         imagesSelected.push([imagesInfo[i][1], imagesInfo[i][3]]);
     }
-
+    if (!update) {
+        return true;
+    }
     let instruction = {'command': 'clagnoscoClassImagesSelectionUpdate',
                        'id': nameTabID,
                        'selection': imagesSelected,
@@ -999,7 +989,68 @@ async function clagnoscoClassImagesSelectionUpdate() {
     });
 }
 
+function openSaveTab() {
+    clagnoscoClassImagesSelectionUpdate().then(answerUpdate => {
+        document.getElementsByClassName("save-fullscreen")[0].classList.remove("hidden");
+    });
+}
+
+function closeSaveTab() {
+    if (!isSaving) {
+        document.getElementsByClassName("save-fullscreen")[0].classList.add("hidden");
+    }
+}
+
+function saveFolder() {
+    if (isSaving) {
+        return false;
+    }
+
+    isSaving = true;
+    let saveFolderType = document.querySelector('input[name="saveFolderType"]:checked').value;
+
+    let instruction = {'command': 'saveFolder',
+                       'namingType': saveFolderType
+                      };
+    
+    sendToServer(instruction).then(answer => {
+        if (answer["status"] === "saveFolderSuccess") {
+            showCustomAlert(`Все изображения успешно распределены по субдиректириям в папке «${answer["folder"]}»`);
+        } else if (answer["status"] === "error") {
+            console.log(answer["console"]);
+            alert(answer["message"]);
+        } else {
+            // alert("Странный ответ сервера.");
+        }
+        isSaving = false;
+    }).catch(error => {
+        console.error("Ошибка обработки запроса:", error);
+        isSaving = false;
+    });
+}
+
+function saveTable() {
+    if (isSaving) {
+        return false;
+    }
+    
+    let instruction = {'command': 'saveTable'};
+    
+    sendToServer(instruction).then(answer => {
+        if (answer["status"] === "saveTableSuccess") {
+            answer["table"]; //!!!!!!!!!
+        } else if (answer["status"] === "error") {
+            alert(answer["message"]);
+        } else {
+            // alert("Странный ответ сервера.");
+        }
+        isSaving = false;
+    }).catch(error => {
+        console.error("Ошибка обработки запроса:", error);
+        isSaving = false;
+    });
+}
+
 function importData() {
     // !!!!!!!!
 }
-

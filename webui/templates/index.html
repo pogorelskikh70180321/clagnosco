@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="{{ url_for('static', filename='vars.js') }}"></script>
     <script src="{{ url_for('static', filename='main.js') }}"></script>
     <script src="{{ url_for('static', filename='templates.js') }}"></script>
     <title>Clagnosco - Классификация изображений</title>
@@ -15,6 +16,33 @@
     </div>
     <div class="fullscreen-loader">
         <div class="rotating-image"></div>
+    </div>
+    <div class="save-fullscreen" onclick="closeSaveTab();">
+        <div class="save-tab" onclick="event.stopPropagation();">
+            <label class="save-tab-label-main">Сохранение классов</label>
+            <label class="save-tab-label">Таблица</label>
+            <button class="save-btn-table" id="saveFolder" onclick="saveTable();">Сохранить в качестве CSV таблицы</button>
+            <label class="save-tab-label">Субдиректории</label>
+            <label class="init-tab-label">Названия субдиректорий (до 100 символов):</label>
+            <div class="radio-tab">
+                <div class="radio">
+                    <input type="radio" id="saveFolderTypeNumberName" name="saveFolderType" value="numberName" checked />
+                    <label for="saveFolderTypeNumberName">Номер класса - Имя класса</label>
+                </div>
+
+                <div class="radio">
+                    <input type="radio" id="saveFolderTypeNumber" name="saveFolderType" value="number" />
+                    <label for="saveFolderTypeNumber">Номер класса</label>
+                </div>
+
+                <div class="radio">
+                    <input type="radio" id="saveFolderTypeName" name="saveFolderType" value="name" />
+                    <label for="saveFolderTypeName">Имя класса</label>
+                </div>
+            </div>
+            <button class="save-btn-folder" id="saveFolder" onclick="saveFolder();">Сохранить в субдиректориях</button>
+            <button class="class-button class-button-x class-button-bigger close-button" title="Закрыть" onclick="closeSaveTab();"></button>
+        </div>
     </div>
     <div class="container">
         <div class="menu-tab">
@@ -39,7 +67,7 @@
 
                 <div class="init-button-area" id="menuStatusInit">
                     <button class="init-btn-clear-cache" id="initButtonClearCache" onclick="clearCache();">Очистить кэш</button>
-                    <button class="init-btn-import-data" id="initButtonImportData" onclick="importData();">Импорт</button>
+                    <button class="init-btn-import-data" id="initButtonImportData" onclick="importData();">Импорт таблицы</button>
                     <button class="init-btn-process" id="initButtonProcess" onclick="launchProcessing();">Обработать</button>
                 </div>
 
@@ -50,7 +78,7 @@
                 
                 <div class="init-button-area hidden" id="menuStatusDone">
                     <button class="init-btn-reset" id="initButtonReset" onclick="resetAll();">Сбросить</button>
-                    <button class="init-btn-save" id="initButtonSave">Сохранить</button>
+                    <button class="init-btn-save" id="initButtonSave" onclick="openSaveTab();">Сохранить</button>
                 </div>
                 
             </div>

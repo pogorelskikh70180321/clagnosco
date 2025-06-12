@@ -12,6 +12,7 @@ import logging
 import os
 from PIL import Image
 import io
+import shutil
 from time import time
 from autoencoder import *
 from cluster import *
@@ -96,25 +97,20 @@ def serve_image(filename):
     return send_file(full_path)
 
 @app.route('/img_small/<path:filename>')
-def serve_image_small(filename):
+def serve_image_small(filename, new_size=300, new_quality=85):
     full_path = os.path.abspath(filename)
     if not os.path.isfile(full_path):
         return abort(404, description='Изображение не найдено')
     try:
         with Image.open(full_path) as img:
 
-            img.thumbnail((250, 250))
+            img.thumbnail((new_size, new_size))
             img = img.convert('RGB')
+
             img_io = io.BytesIO()
-            img.save(img_io, format='JPEG', quality=90)
-
-            # img_io = io.BytesIO()
-            # img_format = img.format if img.format else 'PNG'
-            # img.save(img_io, format=img_format)
-
+            img.save(img_io, format='JPEG', quality=new_quality)
             img_io.seek(0)
             return send_file(img_io, mimetype='image/jpeg')
-            # return send_file(img_io, mimetype=f'image/{img_format.lower()}')
     except Exception as e:
         return abort(500, description=f'Ошибка обработки изображения: {e}')
 
@@ -152,6 +148,12 @@ def fetch():
         result = delete_clagnosco_class(data)
     elif data['command'] == 'clagnoscoClassImagesSelectionUpdate':
         result = clagnosco_class_images_selection_update(data)
+    elif data['command'] == 'saveFolder':
+        result = save_folder(data)
+    elif data['command'] == 'saveTable':
+        result = save_table()
+    else:
+        print(f"Неизвестный запрос:\n{data}")
     return jsonify(result)
 
 def clear_cache_webui(data):
@@ -449,6 +451,94 @@ def clagnosco_class_images_selection_update(data):
             "time": time() - start_time
             }
         return state.status
+
+def save_folder(data):
+    start_time = time()
+    state = app.state
+
+    def name_url(name):
+        replacements = {
+            '<': r'%3C',
+            '>': r'%3E',
+            ':': r'%3A',
+            '"': r'%22',
+            '/': r'%2F',
+            '\\': r'%5C',
+            '|': r'%7C',
+            '?': r'%3F',
+            '*': r'%2A',
+            '%': r'%25',
+        }
+        for symbol, url in replacements.items():
+            name = name.replace(symbol, url)
+        return name
+    
+    def naming(naming_type, n, clagnosco_class_name, previous_names):
+
+        folder_name = ""
+        
+        if naming_type == "numberName":
+            folder_name = f"{str(n + 1)} - {name_url(clagnosco_class_name.strip())}"
+            folder_name = folder_name[:100]
+            folder_name = folder_name.strip()
+            return folder_name
+        elif naming_type == "number":
+            folder_name = str(n + 1)
+            return folder_name
+        elif naming_type == "name":
+            folder_name = name_url(clagnosco_class_name.strip())
+            if folder_name == "":
+                folder_name = "_"
+            
+            folder_name = folder_name[:100]
+            folder_name = folder_name.strip()
+            
+            original_name = folder_name
+            current_n = 2
+            if folder_name.lower() in previous_names:
+                while True:
+                    if folder_name.lower() in previous_names:
+                        folder_name = f"{original_name} {current_n}"
+                        current_n += 1
+                    else:
+                        break
+            return folder_name
+        else:
+            return f"error {n + 1}"
+        
+    try:
+        naming_type = data['namingType']
+        previous_names = []
+        for n, (clagnosco_class_name, clagnosco_class) in enumerate(state.img_clusters):
+            subfolder_name = naming(naming_type, n, clagnosco_class_name, previous_names)
+            previous_names.append(subfolder_name.lower())
+
+            new_dir = os.path.join(state.img_dir, subfolder_name)
+            os.makedirs(new_dir, exist_ok=True)
+
+            for img, _, _ in [i for i in clagnosco_class if i[2]]:
+                shutil.copy2(os.path.join(state.img_dir, img),
+                             os.path.join(new_dir, img))
+
+        state.status = {"status": "saveFolderSuccess",
+                        "folder": state.img_dir,
+                        "time": time() - start_time}
+        return state.status
+    except Exception as e:
+        state.status = {
+            "status": "error",
+            "type": "Saving folder error",
+            "message": f"Возникла ошибка распределения изображений по субдиректориям в папке «{state.img_dir}»",
+            "console": f"Ошибка: {e.__class__.__name__}: {str(e)}",
+            "time": time() - start_time
+        }
+        return state.status
+
+
+def save_table():
+    pass
+    
+
 
 
 if __name__ == '__main__':
