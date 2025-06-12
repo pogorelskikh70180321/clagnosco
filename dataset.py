@@ -18,6 +18,7 @@ import random
 import warnings
 warnings.filterwarnings('ignore')
 
+BASE_DATASET_DIR = r"C:\!project-dataset"
 
 # Устройство (CPU или GPU)
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -28,7 +29,7 @@ class ClagnoscoDataset(torch.utils.data.Dataset):
     Класс для загрузки изображений.
     '''
     def __init__(self):
-        self.base_dir = r"C:\!project-dataset"
+        self.base_dir = BASE_DATASET_DIR
         metadata_path = os.path.join(self.base_dir, "metadata.csv")
         self.data = pd.read_csv(metadata_path)
         self.buckets = self.bucketize()
