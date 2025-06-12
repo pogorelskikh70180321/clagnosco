@@ -407,6 +407,41 @@ def test_model(model, test_batches, transformed_dataset):
     print(f"Средняя ошибка: {avg_loss:.6f}")
     return avg_loss, losses
 
+def pixel_rgb_accuracy(img1: Image.Image, img2: Image.Image):
+    """
+    Возвращает Accuracy (нормализованное евклидово сходство) через векторное расстояние RGB пискелей между двумя PIL изображениями.
+    """
+    img1 = np.asarray(img1.convert("RGB"), dtype=np.float32) / 255.0
+    img2 = np.asarray(img2.convert("RGB"), dtype=np.float32) / 255.0
+
+    dist = np.linalg.norm(img1 - img2, axis=2)
+    
+    accuracy = 1 - dist / np.sqrt(3)
+
+    return accuracy.mean()
+
+def test_model_accuracy(model, test_batches, dataset):
+    model.eval()
+    model.to(DEVICE)
+
+    test_list = batch_buckets_to_list(test_batches)
+    img_accuracies = []
+    tqdm_bar = tqdm(test_list, desc="Проверка модели")
+    for test_idx in tqdm_bar:
+        sample = dataset[test_idx]
+        test_image = sample['image']
+        test_image_square = sample['image_square']
+
+        _, recon = run_image_through_autoencoder(model, test_image)
+        img_accuracy = pixel_rgb_accuracy(recon, test_image_square)
+
+        img_accuracies.append(img_accuracy)
+        current_avg_img_accuracies = sum(img_accuracies) / len(img_accuracies)
+        tqdm_bar.set_postfix(ср_acc=f"{current_avg_img_accuracies:.4f}", acc=f"{img_accuracy:.4f}")
+    avg_img_accuracy = sum(img_accuracies) / len(img_accuracies)
+    print(f"Accuracy: {avg_img_accuracy:.6f}")
+    return avg_img_accuracy
+
 
 def test_models(model_list, test_batches, transformed_dataset, save_avg=True):
     """
