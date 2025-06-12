@@ -1,5 +1,6 @@
-var safeReload = true;
 var loggingFetch = true;
+
+var safeReload = true;
 var serverConnect = true;
 var serverReconnect = false;
 var reloadNeeded = false;

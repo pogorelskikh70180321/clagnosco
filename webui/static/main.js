@@ -515,9 +515,9 @@ function renameClagnoscoClass() {
                       };
     return sendToServer(instruction).then(answer => {
         if (answer["status"] === "clagnoscoClassRenamed") {
-            let isNewNameEmpty = newName === '';
-
             newName = answer["newName"];
+
+            let isNewNameEmpty = newName == '';
 
             currentClagnoscoClassText.textContent = newName;
             if (isNewNameEmpty) {
@@ -603,6 +603,8 @@ function copyClagnoscoClass(currentButtonCopy=undefined, confirmCopying=true) {
                 return null;
             }
         }
+        
+        disableAllClagnoscoClasses();
 
         let sizeText = bracketsRemoval(currentButtonChildren[2].textContent);
         copyClagnoscoClassServer(idText, newName, sizeText);
@@ -641,6 +643,7 @@ function deleteClagnoscoClass(currentButtonDelete=undefined, confirmDeleting=tru
             isSelected = true;
         }
     }
+
     currentButton = currentClagnoscoClass.children[0];
     let currentButtonChildren = currentButton.children;
     let nameText = currentButtonChildren[1].textContent;
@@ -654,6 +657,7 @@ function deleteClagnoscoClass(currentButtonDelete=undefined, confirmDeleting=tru
         }
     }
 
+    disableAllClagnoscoClasses();
     deleteClagnoscoClassServer(idText, currentClagnoscoClass, isSelected);
 }
 
@@ -924,13 +928,16 @@ function copyClagnoscoClassServer(clagnoscoClassID, clagnoscoClassName, clagnosc
     return sendToServer(instruction).then(answer => {
         if (answer["status"] === "clagnoscoClassCopied") {
             baseAddClagnoscoClassTemplate(nameText=clagnoscoClassName, sizeText=clagnoscoClassSize);
+            enableAllClagnoscoClasses();
         } else if (answer["status"] === "error") {
             alert(answer["message"]);
+            enableAllClagnoscoClasses();
         } else {
             // alert("Странный ответ сервера.");
         }
     }).catch(error => {
         console.error("Ошибка обработки запроса:", error);
+        enableAllClagnoscoClasses();
     });
 }
 
@@ -946,13 +953,16 @@ function deleteClagnoscoClassServer(clagnoscoClassID, currentClagnoscoClass, isS
             }
             currentClagnoscoClass.remove();
             redoIndexing();
+            enableAllClagnoscoClasses();
         } else if (answer["status"] === "error") {
             alert(answer["message"]);
+            enableAllClagnoscoClasses();
         } else {
             // alert("Странный ответ сервера.");
         }
     }).catch(error => {
         console.error("Ошибка обработки запроса:", error);
+        enableAllClagnoscoClasses();
     });
 }
 
@@ -992,22 +1002,43 @@ async function clagnoscoClassImagesSelectionUpdate(update=true) {
 function openSaveTab() {
     clagnoscoClassImagesSelectionUpdate().then(answerUpdate => {
         document.getElementsByClassName("save-fullscreen")[0].classList.remove("hidden");
+        document.querySelector('.container').setAttribute('inert', '');
+        document.getElementById('saveFolder').focus();
     });
 }
 
 function closeSaveTab() {
     if (!isSaving) {
         document.getElementsByClassName("save-fullscreen")[0].classList.add("hidden");
+        document.querySelector('.container').removeAttribute('inert');
+        document.getElementById('initButtonSave').focus();
     }
 }
 
-function saveFolder() {
+function saveFolder(confirmSaveFolder=true) {
     if (isSaving) {
         return false;
     }
 
-    isSaving = true;
     let saveFolderType = document.querySelector('input[name="saveFolderType"]:checked').value;
+
+    let warningText = "Сохранить классы в субдиректориях?";
+    if (saveFolderType === "numberName") {
+        warningText = `Сохранить классы в субдиректориях как имя и номер класса?\n(Названия папок сократятся до 100 символов)`;
+    } else if (saveFolderType === "number") {
+        warningText = `Сохранить классы в субдиректориях как номер класса?`;
+    } else if (saveFolderType === "name") {
+        warningText = `Сохранить классы в субдиректориях как имя класса?\n(Названия папок сократятся до 100 символов)`;
+    }
+
+    if (confirmSaveFolder) {
+        const confirmStatus = window.confirm(warningText);
+        if (!confirmStatus) {
+            return null;
+        }
+    }
+
+    isSaving = true;
 
     let instruction = {'command': 'saveFolder',
                        'namingType': saveFolderType
@@ -1029,16 +1060,23 @@ function saveFolder() {
     });
 }
 
-function saveTable() {
+function saveTable(confirmSaveTable=true) {
     if (isSaving) {
         return false;
     }
-    
+
+    if (confirmSaveTable) {
+        const confirmStatus = window.confirm(`Сохранить классы в качестве CSV таблицы?`);
+        if (!confirmStatus) {
+            return null;
+        }
+    }
+
     let instruction = {'command': 'saveTable'};
     
     sendToServer(instruction).then(answer => {
         if (answer["status"] === "saveTableSuccess") {
-            answer["table"]; //!!!!!!!!!
+            downloadTextFile(answer["table"], answer["fileName"], "text/csv");
         } else if (answer["status"] === "error") {
             alert(answer["message"]);
         } else {
@@ -1049,6 +1087,22 @@ function saveTable() {
         console.error("Ошибка обработки запроса:", error);
         isSaving = false;
     });
+}
+
+function downloadTextFile(content, filename, mimeType='text/plain') {
+    const blob = new Blob([content], { type: mimeType + ';charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    
+    link.href = url;
+    link.download = filename;
+    link.style.display = 'none';
+    
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    URL.revokeObjectURL(url);
 }
 
 function importData() {

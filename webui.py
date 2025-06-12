@@ -13,6 +13,8 @@ import os
 from PIL import Image
 import io
 import shutil
+import pandas as pd
+from datetime import datetime
 from time import time
 from autoencoder import *
 from cluster import *
@@ -120,6 +122,8 @@ def fetch():
     if data['command'] == 'basicResponse':
         start_time = time()
         state = app.state
+        if state["status"] == "idle":
+            return {}
         
         state.status = {
             "status": "basicResponseSuccess",
@@ -152,6 +156,8 @@ def fetch():
         result = save_folder(data)
     elif data['command'] == 'saveTable':
         result = save_table()
+    elif data['command'] == 'importData':
+        result = import_data()
     else:
         print(f"Неизвестный запрос:\n{data}")
     return jsonify(result)
@@ -536,10 +542,59 @@ def save_folder(data):
 
 
 def save_table():
-    pass
-    
+    start_time = time()
+    state = app.state
+    try:
+        img_dir = state.img_dir
+        table_columns = ["ID класса", "Имя класса", "Изображение", "Вероятность", "Входит в класс", f"Директория - {img_dir}"]
+        table_list = []
 
+        for clagnosco_class_n, (clagnosco_class_name, clagnosco_class) in enumerate(state.img_clusters):
+            clagnosco_class_n = clagnosco_class_n + 1
+            clagnosco_class_name = clagnosco_class_name.strip()
+            for img, prob, is_member in clagnosco_class:
+                table_list.append([clagnosco_class_n,
+                                clagnosco_class_name,
+                                img,
+                                str(prob).replace(".", ","),
+                                1 if is_member else 0,
+                                ""])
 
+        df = pd.DataFrame(table_list, columns=table_columns)
+        # df_csv = df.to_csv(index=False, encoding="utf-8-sig", sep=";")
+        df_csv = df.to_csv(index=False, encoding="cp1251", sep=";")
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        csv_file_name = f"clagnosco классы {timestamp}.csv"
+
+        state.status = {"status": "saveTableSuccess",
+                        "table": df_csv,
+                        "fileName": csv_file_name, 
+                        "time": time() - start_time}
+        return state.status
+    except:
+        state.status = {
+            "status": "error",
+            "type": "Saving table error",
+            "message": f"Возникла ошибка создания таблицы",
+            "time": time() - start_time
+        }
+        return state.status
+
+def import_data(data):
+    start_time = time()
+    state = app.state
+    try:
+        state.status = {"status": "dataImported",
+                        "time": time() - start_time}
+        return state.status
+    except:
+        state.status = {
+            "status": "error",
+            "type": "Import error",
+            "message": f"Ошибка импорта классов через таблицу",
+            "time": time() - start_time
+        }
+        return state.status
 
 if __name__ == '__main__':
     app.run(debug=True)

@@ -20,6 +20,7 @@
     <div class="save-fullscreen" onclick="closeSaveTab();">
         <div class="save-tab" onclick="event.stopPropagation();">
             <label class="save-tab-label-main">Сохранение классов</label>
+            <button class="class-button class-button-x class-button-bigger close-button" title="Закрыть" onclick="closeSaveTab();"></button>
             <label class="save-tab-label">Таблица</label>
             <button class="save-btn-table" id="saveFolder" onclick="saveTable();">Сохранить в качестве CSV таблицы</button>
             <label class="save-tab-label">Субдиректории</label>
@@ -41,7 +42,6 @@
                 </div>
             </div>
             <button class="save-btn-folder" id="saveFolder" onclick="saveFolder();">Сохранить в субдиректориях</button>
-            <button class="class-button class-button-x class-button-bigger close-button" title="Закрыть" onclick="closeSaveTab();"></button>
         </div>
     </div>
     <div class="container">
