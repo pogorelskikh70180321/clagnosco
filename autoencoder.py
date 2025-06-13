@@ -18,6 +18,8 @@ import os
 import requests
 import tempfile
 from tqdm import tqdm
+from torchmetrics.functional import structural_similarity_index_measure as ssim
+
 
 import warnings
 warnings.filterwarnings('ignore')
@@ -218,20 +220,46 @@ def model_loader(model=None, first_epoch=0):
             first_epoch = -1
         else:
             # Загрузка модели из string
+            model_filename = model
             try:
                 first_epoch = int(model_filename.split('_')[4].split(".")[0])
             except:
                 first_epoch = -1
-            model_filename = model
             model = ClagnoscoAutoencoder()
             model.load_state_dict(torch.load(SAVE_FOLDER+model_filename))
             print(f"Загружена выбранная модель: {model_filename}")
     return model, first_epoch
 
+def vector_accuracy_loss(pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+    """
+    Vector Accuracy Loss для батча изображений с формой [B, C, H, W]
+    """
+    B, C, H, W = pred.shape
+    pred_flat = pred.permute(0, 2, 3, 1).reshape(B, -1, C)
+    target_flat = target.permute(0, 2, 3, 1).reshape(B, -1, C)
+
+    dist = torch.norm(pred_flat - target_flat, dim=2)
+
+    loss = dist.mean() / (C ** 0.5)
+    return loss
+
+class CombinedMSEVALSSIMLoss(nn.Module):
+    def __init__(self, alpha=0.45, beta=0.45, gamma=0.1):
+        super(CombinedMSEVALSSIMLoss, self).__init__()
+        self.alpha = alpha      # Вес MSE
+        self.beta = beta        # Вес VAL
+        self.gamma = gamma      # Вес SSIM
+        self.mse = nn.MSELoss()
+
+    def forward(self, output, target):
+        loss_mse = self.mse(output, target)
+        loss_vec = vector_accuracy_loss(output, target)
+        loss_ssim = 1 - ssim(output, target, data_range=1.0)
+        return self.alpha * loss_mse + self.beta * loss_vec + self.gamma * loss_ssim
 
 def train_autoencoder(transformed_dataset, train_batches, model=None,
                       num_epochs=10, first_epoch=0,
-                      lr=1e-4):
+                      lr=1e-4, criterion_type=""):
     """
     Обучение модели автоэнкодера на преобразованном наборе данных.
     Модель сохраняется в папке SAVE_FOLDER ("./models/") с временной меткой.
@@ -242,6 +270,7 @@ def train_autoencoder(transformed_dataset, train_batches, model=None,
         - num_epochs: количество эпох для обучения (по умолчанию 10)
         - first_epoch: начальная эпоха для обучения (по умолчанию 0, что означает первую)
         - lr: скорость обучения для оптимизатора (по умолчанию 1e-4)
+        - criterion_type: тип функции потерь (по умолчанию "" -> "MSE") из "MSE", "VAL", "MSE+VAL+SSIM" (0.45, 0.45, 0.1)
     
     Выходные данные (файлы сохраняются в SAVE_FOLDER):
         - model: обученная модель автоэнкодера
@@ -253,7 +282,12 @@ def train_autoencoder(transformed_dataset, train_batches, model=None,
     model.train()
     model.to(DEVICE)
 
-    criterion = nn.MSELoss()
+    if criterion_type == "MSE" or criterion_type == "":
+        criterion = nn.MSELoss()
+    elif criterion_type == "VAL":
+        criterion = vector_accuracy_loss
+    elif criterion_type == "MSE+VAL+SSIM":
+        criterion = CombinedMSEVALSSIMLoss()
 
     optimizer = optim.Adam(model.parameters(), lr=lr)
     len_train_batches = len(train_batches)

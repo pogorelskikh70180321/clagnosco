@@ -9,3 +9,4 @@ scikit-learn
 flask
 kneed
 logging
+torchmetrics
