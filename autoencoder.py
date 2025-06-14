@@ -26,7 +26,7 @@ warnings.filterwarnings('ignore')
 
 
 # Папка для сохранения моделей и модель на Hugging Face
-SAVE_FOLDER = "models/"
+SAVE_FOLDER = "models"
 HF_MODEL_DOWNLOAD_LINK = 'https://huggingface.co/pogorzelskich/clagnosco_2025-05-11/resolve/main/model.pt?download=true'
 
 
@@ -199,10 +199,11 @@ def model_loader(model=None, first_epoch=0):
         except:
             first_epoch = -1
         model = ClagnoscoAutoencoder()
-        model.load_state_dict(torch.load(SAVE_FOLDER+model_filename))
+        model.load_state_dict(torch.load(os.path.join(SAVE_FOLDER, model_filename)))
         print(f"Загружена последняя модель: {model_filename}")
 
     elif type(model) == str:
+        model = model.strip()
         if model.lower() == "create":
             # Создание модели
             print("Создание новой модели")
@@ -226,7 +227,7 @@ def model_loader(model=None, first_epoch=0):
             except:
                 first_epoch = -1
             model = ClagnoscoAutoencoder()
-            model.load_state_dict(torch.load(SAVE_FOLDER+model_filename))
+            model.load_state_dict(torch.load(os.path.join(SAVE_FOLDER, model_filename)))
             print(f"Загружена выбранная модель: {model_filename}")
     return model, first_epoch
 
@@ -299,7 +300,7 @@ def train_autoencoder(transformed_dataset, train_batches, model=None,
         loss_log_filename = f"autoencoder_{timestamp}_epoch_{epoch+1}_loss.txt"
         batched_buckets_gen = iterate_batched_buckets(transformed_dataset, train_batches)
 
-        with open(SAVE_FOLDER+loss_log_filename, 'w') as loss_log:
+        with open(os.path.join(SAVE_FOLDER, loss_log_filename), 'w') as loss_log:
             
             tqdm_bar = tqdm(range(len_train_batches), total=len_train_batches, desc=f"Эпоха {epoch+1}/{num_epochs}")
             for n, _ in enumerate(tqdm_bar):
@@ -324,7 +325,7 @@ def train_autoencoder(transformed_dataset, train_batches, model=None,
                 tqdm_bar.set_postfix(ср_потери=f"{current_avg_loss:.4f}", потери=f"{batch_loss:.4f}")
 
         avg_loss = sum(losses) / len(losses)
-        torch.save(model.state_dict(), SAVE_FOLDER+model_filename)
+        torch.save(model.state_dict(), os.path.join(SAVE_FOLDER,model_filename))
         print(f"[Эпоха {epoch+1}] Средняя ошибка: {avg_loss:.6f} - Сохранено как {model_filename}")
 
 
@@ -501,7 +502,7 @@ def test_models(model_list, test_batches, transformed_dataset, save_avg=True):
     if save_avg:
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         avg_losses_filename = f"autoencoder_{timestamp}_avg_losses.txt"
-        with open(SAVE_FOLDER+avg_losses_filename, 'w') as avg_loss_log:
+        with open(os.path.join(SAVE_FOLDER, avg_losses_filename), 'w') as avg_loss_log:
             for model, avg_loss in avg_losses_dict.items():
                 avg_loss_log.write(f"{model}: {avg_loss:.8f}\n")
     return avg_losses_dict, losses_dict
