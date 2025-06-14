@@ -1,4 +1,8 @@
-function setupReloadConfirmation() {
+function setupClagnosco() {
+    if (!window.sessionId) {
+        window.sessionId = crypto.randomUUID();
+    }
+
     const hiddenForm = document.createElement('form');
     hiddenForm.classList.add("hidden");
     hiddenForm.innerHTML = '<input type="submit">';
@@ -16,6 +20,17 @@ function setupReloadConfirmation() {
             }
         }
     });
+    
+    document.addEventListener('keydown', function(event) {
+        if (event.key === 'Escape') {
+            closeSaveTab();
+        } else if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
+            event.preventDefault();
+            openSaveTab();
+        }
+    });
+
+    resetAll(confirmResetAll=false, populate=true);
 }
 
 function showCustomAlert(message, timeout=5000) {
@@ -31,9 +46,14 @@ function showCustomAlert(message, timeout=5000) {
 }
 
 async function sendToServer(data, isBasic=false) {
+    data["sessionID"] = window.sessionId;
     try {
         if (loggingFetch) {
             console.log("Запрос:", data);
+        }
+
+        if (oldSession) {
+            return null;
         }
 
         const response = await fetch('/fetch', {
@@ -61,9 +81,22 @@ async function sendToServer(data, isBasic=false) {
             console.log("Ответ:", answer);
         }
         
+        if (answer["status"] === "oldSession") {
+            serverConnect = true;
+            reloadNeeded = true;
+            safeReload = true;
+            oldSession = true;
+            showCustomAlert("Сессия устарела. Перезагрузите страницу.", timeout=-1);
+
+            throw new Error("Сессия устарела. Перезагрузите страницу.");
+        }
+        
         return answer;
 
     } catch (error) {
+        if (oldSession) {
+            return null;
+        }
         if (!isBasic) {
             console.error('Ошибка:', error);
             const answer = await sendToServer({ command: "basicResponse" }, true);
@@ -139,13 +172,13 @@ function clearCache(confirmClearingCache=true) {
     });
 }
 
-function resetAll(confirmResetAll=true) {
+function resetAll(confirmResetAll=true, populate=false) {
     if (reloadNeeded) {
         confirmResetAll=false;
     }
 
     if (confirmResetAll) {
-        const confirmStatus = window.confirm(`Сбросить всё?`);
+        const confirmStatus = window.confirm(`Сбросить все классы и начать процесс обработки заново?\n(Модель останется загруженной, если её не менять)`);
 
         if (!confirmStatus) {
             return null;
@@ -169,10 +202,12 @@ function resetAll(confirmResetAll=true) {
     let menuStatusInit = document.getElementById("menuStatusInit");
     let menuStatusProcessing = document.getElementById("menuStatusProcessing");
     let menuStatusDone = document.getElementById("menuStatusDone");
+    let menuStatusClear = document.getElementById("menuStatusClear");
     
     menuStatusInit.classList.remove("hidden");
     menuStatusProcessing.classList.add("hidden");
     menuStatusDone.classList.add("hidden");
+    menuStatusClear.classList.remove("hidden");
 
     clagnoscoClassesSizes = [];
     clagnoscoImagesNames = [];
@@ -180,16 +215,18 @@ function resetAll(confirmResetAll=true) {
 
     deleteAllImages();
     deleteAllClagnoscoClasses(false);
-    populateModels().then(() => {
-        document.getElementsByClassName('classes-tab')[0].classList.add('hidden');
-        document.getElementById('classTab').classList.add('hidden');
+    endSession().then(() => {
+        populateModels(populate=populate).then(() => {
+            document.getElementsByClassName('classes-tab')[0].classList.add('hidden');
+            document.getElementById('classTab').classList.add('hidden');
 
-        let classTabLoading = document.getElementsByClassName("class-tab-loading")[0];
-        classTabLoading.classList.add('hidden');
+            let classTabLoading = document.getElementsByClassName("class-tab-loading")[0];
+            classTabLoading.classList.add('hidden');
 
-        safeReload = true;
+            safeReload = true;
 
-        loading.classList.add('hidden');
+            loading.classList.add('hidden');
+        });
     });
 }
 
@@ -218,6 +255,7 @@ function launchProcessing(confirmLaunchProcessing=true) {
     let menuStatusInit = document.getElementById("menuStatusInit");
     let menuStatusProcessing = document.getElementById("menuStatusProcessing");
     let menuStatusDone = document.getElementById("menuStatusDone");
+    let menuStatusClear = document.getElementById("menuStatusClear");
     
     if (modelName.value == "download") {
         menuStatusProcessing.children[1].textContent = "Загрузка модели из интернета...";
@@ -228,6 +266,7 @@ function launchProcessing(confirmLaunchProcessing=true) {
     menuStatusInit.classList.add("hidden");
     menuStatusProcessing.classList.remove("hidden");
     menuStatusDone.classList.add("hidden");
+    menuStatusClear.classList.add("hidden");
 
     sendToServer(instruction).then(answer => {
         if (answer["status"] === "readyToCluster") {
@@ -276,10 +315,12 @@ function clusterImages(imagesCount=-1) {
             let menuStatusInit = document.getElementById("menuStatusInit");
             let menuStatusProcessing = document.getElementById("menuStatusProcessing");
             let menuStatusDone = document.getElementById("menuStatusDone");
+            let menuStatusClear = document.getElementById("menuStatusClear");
 
             menuStatusInit.classList.add("hidden");
             menuStatusProcessing.classList.add("hidden");
             menuStatusDone.classList.remove("hidden");
+            menuStatusClear.classList.remove("hidden");
 
         } else if (answer["status"] === "error") {
             alert(answer["message"]);
@@ -317,7 +358,7 @@ function isLocalServerURL(urlString) {
       hostname.startsWith('127.')     ||
       hostname.startsWith('192.168.')
     );
-  } catch (e) {
+  } catch (error) {
     return false;
   }
 }
@@ -862,7 +903,11 @@ function clearModels() {
 }
 
 
-async function populateModels(localModelsInclude=true, internetModelDownloadInclude=true) {
+async function populateModels(populate=true, localModelsInclude=true, internetModelDownloadInclude=true) {
+    if (!populate) {
+        return false;
+    }
+
     if (localModelsInclude || internetModelDownloadInclude) {
         clearModels();
     }
@@ -1000,18 +1045,23 @@ async function clagnoscoClassImagesSelectionUpdate(update=true) {
 }
 
 function openSaveTab() {
-    clagnoscoClassImagesSelectionUpdate().then(answerUpdate => {
-        document.getElementsByClassName("save-fullscreen")[0].classList.remove("hidden");
-        document.querySelector('.container').setAttribute('inert', '');
-        document.getElementById('saveFolder').focus();
-    });
+    if (!document.getElementById("menuStatusDone").classList.contains("hidden")) {
+        clagnoscoClassImagesSelectionUpdate().then(answerUpdate => {
+            document.getElementsByClassName("save-fullscreen")[0].classList.remove("hidden");
+            document.querySelector('.container').setAttribute('inert', '');
+            document.querySelector(".save-tab").querySelector(".close-button").focus();
+        });
+    }
 }
 
 function closeSaveTab() {
     if (!isSaving) {
-        document.getElementsByClassName("save-fullscreen")[0].classList.add("hidden");
-        document.querySelector('.container').removeAttribute('inert');
-        document.getElementById('initButtonSave').focus();
+        let fullScreenElem = document.getElementsByClassName("save-fullscreen")[0];
+        if (!fullScreenElem.classList.contains("hidden")) {
+            fullScreenElem.classList.add("hidden");
+            document.querySelector('.container').removeAttribute('inert');
+            document.getElementById('initButtonSave').focus();
+        }
     }
 }
 
@@ -1039,6 +1089,7 @@ function saveFolder(confirmSaveFolder=true) {
     }
 
     isSaving = true;
+    savingStatusButtons(true, "folder");
 
     let instruction = {'command': 'saveFolder',
                        'namingType': saveFolderType
@@ -1054,9 +1105,11 @@ function saveFolder(confirmSaveFolder=true) {
             // alert("Странный ответ сервера.");
         }
         isSaving = false;
+        savingStatusButtons(false);
     }).catch(error => {
         console.error("Ошибка обработки запроса:", error);
         isSaving = false;
+        savingStatusButtons(false);
     });
 }
 
@@ -1072,6 +1125,8 @@ function saveTable(confirmSaveTable=true) {
         }
     }
 
+    savingStatusButtons(true, "table");
+
     let instruction = {'command': 'saveTable'};
     
     sendToServer(instruction).then(answer => {
@@ -1083,9 +1138,11 @@ function saveTable(confirmSaveTable=true) {
             // alert("Странный ответ сервера.");
         }
         isSaving = false;
+        savingStatusButtons(false);
     }).catch(error => {
         console.error("Ошибка обработки запроса:", error);
         isSaving = false;
+        savingStatusButtons(false);
     });
 }
 
@@ -1103,6 +1160,80 @@ function downloadTextFile(content, filename, mimeType='text/plain') {
     document.body.removeChild(link);
     
     URL.revokeObjectURL(url);
+}
+
+function savingStatusButtons(toSave=false, savingType) {
+    let btnTable = document.querySelector(".save-btn-table");
+    let btnFolder = document.querySelector(".save-btn-folder");
+    let radioInputs = document.querySelector(".radio-tab").querySelectorAll('input[type="radio"]');
+
+    if (!toSave) {
+        btnTable.classList.remove("save-btn-loading");
+        btnTable.classList.remove("save-btn-disabled");
+        btnTable.textContent = "Сохранить в качестве CSV таблицы";
+        btnFolder.classList.remove("save-btn-loading");
+        btnFolder.classList.remove("save-btn-disabled");
+        btnFolder.textContent = "Сохранить в субдиректориях";
+        for (let i = 0; i < radioInputs.length; i++) {
+            radioInputs[i].disabled = false;
+            radioInputs[i].classList.remove("radio-disabled");
+        }
+        return null;
+    }
+
+    for (let i = 0; i < radioInputs.length; i++) {
+        radioInputs[i].disabled = true;
+        radioInputs[i].classList.add("radio-disabled");
+    }
+
+    if (savingType === "table") {
+        btnTable.classList.add("save-btn-loading");
+        btnTable.classList.remove("save-btn-disabled");
+        btnTable.textContent = "Сохранение в качестве CSV таблицы...";
+
+        btnFolder.classList.remove("save-btn-loading");
+        btnFolder.classList.add("save-btn-disabled");
+    } else if (savingType === "folder") {
+        btnTable.classList.remove("save-btn-loading");
+        btnTable.classList.add("save-btn-disabled");
+
+        btnFolder.classList.add("save-btn-loading");
+        btnFolder.classList.remove("save-btn-disabled");
+        btnFolder.textContent = "Сохранение в субдиректориях...";
+    }
+}
+
+function unloadModel(confirmUnloadingModel=true) {
+    if (confirmUnloadingModel) {
+        const confirmStatus = window.confirm(`Выгрузить модель из памяти?\n(Модель не будет удалена с устройства)`);
+        if (!confirmStatus) {
+            return null;
+        }
+    }
+
+    let instruction = {'command': 'unloadModel'};
+    
+    sendToServer(instruction).then(answer => {
+        if (answer["status"] === "modelUnloaded") {
+            showCustomAlert(answer["message"]);
+        } else if (answer["status"] === "error") {
+            alert(answer["message"]);
+        } else {
+            // alert("Странный ответ сервера.");
+        }
+        isSaving = false;
+    }).catch(error => {
+        console.error("Ошибка обработки запроса:", error);
+        isSaving = false;
+    });
+}
+
+async function endSession() {
+    let instruction = {'command': 'endSession'};
+    
+    sendToServer(instruction).then(answer => {
+    }).catch(error => {
+    });
 }
 
 function importData() {

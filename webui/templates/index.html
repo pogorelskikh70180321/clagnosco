@@ -10,7 +10,7 @@
     <title>Clagnosco - Классификация изображений</title>
     <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='svg/clagnosco.svg') }}">
 </head>
-<body onload="setupReloadConfirmation(); resetAll(confirmResetAll=false);">
+<body onload="setupClagnosco();">
     <div id="custom-alert" class="custom-alert">
     ...
     </div>
@@ -24,7 +24,7 @@
             <label class="save-tab-label">Таблица</label>
             <button class="save-btn-table" id="saveFolder" onclick="saveTable();">Сохранить в качестве CSV таблицы</button>
             <label class="save-tab-label">Субдиректории</label>
-            <label class="init-tab-label">Названия субдиректорий (до 100 символов):</label>
+            <label class="init-tab-label">Названия субдиректорий:</label>
             <div class="radio-tab">
                 <div class="radio">
                     <input type="radio" id="saveFolderTypeNumberName" name="saveFolderType" value="numberName" checked />
@@ -66,7 +66,6 @@
                 </div>
 
                 <div class="init-button-area" id="menuStatusInit">
-                    <button class="init-btn-clear-cache" id="initButtonClearCache" onclick="clearCache();">Очистить кэш</button>
                     <button class="init-btn-import-data" id="initButtonImportData" onclick="importData();">Импорт таблицы</button>
                     <button class="init-btn-process" id="initButtonProcess" onclick="launchProcessing();">Обработать</button>
                 </div>
@@ -77,8 +76,13 @@
                 </div>
                 
                 <div class="init-button-area hidden" id="menuStatusDone">
-                    <button class="init-btn-reset" id="initButtonReset" onclick="resetAll();">Сбросить</button>
+                    <button class="init-btn-reset" id="initButtonReset" onclick="resetAll();">Сбросить классы</button>
                     <button class="init-btn-save" id="initButtonSave" onclick="openSaveTab();">Сохранить</button>
+                </div>
+
+                <div class="init-button-area" id="menuStatusClear">
+                    <button class="init-btn-clear-cache" id="initButtonClearCache" onclick="clearCache();">Очистить кэш</button>
+                    <button class="init-btn-unload-model" id="initUnloadModel" onclick="unloadModel();">Выгрузить модель</button>
                 </div>
                 
             </div>

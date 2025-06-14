@@ -4,6 +4,7 @@ var safeReload = true;
 var serverConnect = true;
 var serverReconnect = false;
 var reloadNeeded = false;
+var oldSession = false;
 
 var isSaving = false;
 
