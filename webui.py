@@ -7,6 +7,14 @@
 #  Специализация / Профиль подготовки: Искусственный интеллект и анализ данных
 #  Учебная группа: ИД 23.3/Б3-21
 
+PROJECT_VERSION = "1.0"
+
+HOST_LINK = '127.0.0.1'
+PORT_LINK = 5000
+
+if __name__ == '__main__':
+    print(f"===== Запуск Clagnosco v{PROJECT_VERSION} =====")
+
 from flask import Flask, render_template, send_file, abort, request, jsonify
 import logging
 import os
@@ -18,6 +26,8 @@ from datetime import datetime
 from time import time
 import gc
 import multiprocessing
+import webbrowser
+import tkinter as tk
 import threading
 
 from autoencoder import *
@@ -25,7 +35,6 @@ from cluster import *
 
 import warnings
 warnings.filterwarnings('ignore')
-
 
 class AppState:
     def __init__(self):
@@ -384,6 +393,7 @@ def models_in_folder():
         os.makedirs(SAVE_FOLDER)
     state.status = {"status": "readyToInit",
                     "modelNames": [f for f in os.listdir(SAVE_FOLDER) if f.endswith('.pt')],
+                    "projectVersion": PROJECT_VERSION,
                     "time": time() - start_time
                     }
     return state.status
@@ -675,7 +685,7 @@ def unload_model():
         if state.model is not None:
             try:
                 model_device = next(state.model.parameters()).device
-            except Exception:
+            except:
                 model_device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
             
             del state.model
@@ -718,5 +728,47 @@ def import_data(data):
         }
         return state.status
 
+def resource_dir(selected_dir):
+    try:
+        base_dir = sys._MEIPASS  # путь в PyInstaller
+    except:
+        base_dir = os.path.abspath(".")
+
+    return os.path.join(base_dir, selected_dir)
+
+def launch_gui(host_link, port_link):
+    root = tk.Tk()
+    root.title("Clagnosco")
+    root.geometry("600x75")
+    root.resizable(False, False)
+
+    icon_dir = resource_dir("webui/static/images/clagnosco.ico")
+    root.iconbitmap(icon_dir)
+
+    button = tk.Button(
+        root,
+        text="Открыть Clagnosco в браузере",
+        bg="#00af09",
+        fg="white",
+        font=("Segoe UI", 30),
+        command=lambda: webbrowser.open(f'http://{host_link}:{port_link}/')
+    )
+    
+    button.pack()
+
+    def on_close():
+        root.destroy()
+        os._exit(0)
+
+    root.protocol("WM_DELETE_WINDOW", on_close)
+    root.mainloop()
+
+def run_server(host_link, port_link):
+    app.run(host=host_link, port=port_link, debug=False, use_reloader=False)
+
+
 if __name__ == '__main__':
-    app.run(debug=True)
+    threading.Thread(target=lambda: run_server(HOST_LINK, PORT_LINK), daemon=True).start()
+    launch_gui(HOST_LINK, PORT_LINK)
+    print(f"Clagnosco v{PROJECT_VERSION} запущен на {HOST_LINK}:{PORT_LINK}")
+
