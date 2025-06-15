@@ -25,10 +25,15 @@ import pandas as pd
 from datetime import datetime
 from time import time
 import gc
-import multiprocessing
 import webbrowser
 import tkinter as tk
 import threading
+
+try:
+    import google.colab
+    IS_COLAB = True
+except:
+    IS_COLAB = False
 
 from autoencoder import *
 from cluster import *
@@ -50,9 +55,6 @@ class AppState:
 
 app = Flask(__name__, static_folder='webui/static', template_folder='webui/templates')
 app.state = AppState()
-
-app.clustering_process = None
-app.interrupt_event = multiprocessing.Event()
 
 
 class ImageRouteFilter(logging.Filter):
@@ -221,11 +223,6 @@ def launch_processing(data):
     start_time = time()
     state = app.state
 
-    app.interrupt_event.set()
-    if app.clustering_process and app.clustering_process.is_alive():
-        app.clustering_process.terminate()
-        app.clustering_process.join()
-
     try:
         state.img_dir = data['imgDir'].strip('"')
         if state.img_dir[-1] not in ["\\", "/"]:
@@ -237,11 +234,8 @@ def launch_processing(data):
                             "message": f"Папка \"{state.img_dir}\" не найдена"}
             state.img_dir = None
             return state.status
-        
-        if data['modelName'] != state.model_name:
-            print("Старая модель:", state.model_name)
-            print("Новая модель:", data['modelName'])
 
+        if data['modelName'] != state.model_name:
             state.model_name = data['modelName']
             if data['modelName'] == "download":
                 state.model, _ = model_loader("download")
@@ -257,8 +251,6 @@ def launch_processing(data):
                         return state_error_model_load(state, data['modelName'], start_time)
                 else:
                     return state_error_model_load(state, data['modelName'], start_time)
-        else:
-            print("Та же самая модель:", state.model_name)
 
         state.caching = data['caching']
         state.status = {"status": "readyToCluster",
@@ -277,7 +269,7 @@ def launch_processing(data):
 def state_error_model_load(state, name, start_time):
     state.img_dir = None
     unload_model()
-    
+
     state.status = {
         "status": "error",
         "type": "Local model not found",
@@ -287,89 +279,37 @@ def state_error_model_load(state, name, start_time):
     return state.status
 
 def cluster_images():
-    if app.clustering_process and app.clustering_process.is_alive():
-        print("[cluster_images] Завершение предыдущего процесса кластеризации...")
-        app.interrupt_event.set()
-        app.clustering_process.terminate()
-        app.clustering_process.join()
-
-    app.interrupt_event.clear()
-
+    start_time = time()
     state = app.state
-    shared_state = multiprocessing.Manager().dict({
-        'status': {},
-        'img_names': [],
-        'img_clusters': []
-    })
-
-    images_and_latents, _, _ = images_to_latent(
-        image_folder=state.img_dir,
-        model=state.model,
-        caching=state.caching,
-        ignore_errors=True,
-        print_process=True
-    )
+    state.img_clusters = []
+    images_and_latents, _, _ = images_to_latent(image_folder=state.img_dir,
+                                                model=state.model,
+                                                caching=state.caching,
+                                                ignore_errors=True,
+                                                print_process=True)
+    print("images_to_latent завершено")
 
     if len(images_and_latents) < 2:
         state.status = {
             "status": "error",
             "type": "Too few images",
-            "message": f"Было найдено данное количество изображений: {len(images_and_latents)}. Требуется как минимум 2."
+            "message": f"Было найдено данное количество изображений: {len(images_and_latents)}. Требуется как минимум 2.",
+            "time": time() - start_time
             }
         return state.status
-
-    img_names = [item[0] for item in images_and_latents]
-    latents = [(item[0], item[1]) for item in images_and_latents]
-
-    app.clustering_process = multiprocessing.Process(
-        target=cluster_only_process,
-        args=(app.interrupt_event, latents, shared_state)
-    )
-    app.clustering_process.start()
-    app.clustering_process.join()
-
-    state.img_clusters = shared_state.get('img_clusters', [])
-    state.img_names = img_names
-    state.status = shared_state.get('status', {"status": "unknown"})
-
-    return {
-        "status": state.status.get("status"),
-        "classesSizes": state.status.get("classesSizes"),
-        "imagesNames": state.img_names,
-        "imagesFolder": state.img_dir,
-        "time": state.status.get("time")
-    }
-
-def cluster_only_process(interrupt_event, latents, shared_state):
-    start_time = time()
-    try:
-        if interrupt_event.is_set():
-            shared_state['status'] = {"status": "interrupted"}
-            return
-
-        img_clusters = cluster_latent_vectors(latents, print_process=True)
-
-        if interrupt_event.is_set():
-            shared_state['status'] = {"status": "interrupted"}
-            return
-
-        cluster_sizes = cluster_measuring(img_clusters)
-
-        shared_state['img_clusters'] = img_clusters
-        shared_state['status'] = {
-            "status": "readyToPopulate",
-            "classesSizes": cluster_sizes,
-            "imagesNames": [name for name, _ in latents],
-            "imagesFolder": "",
-            "time": time() - start_time
-        }
-    except Exception as e:
-        shared_state['status'] = {
-            "status": "error",
-            "type": "Clustering error",
-            "message": f"Ошибка кластеризации",
-            "time": time() - start_time
-        }
+    
+    state.img_names = [item[0] for item in images_and_latents]
+    state.img_clusters = cluster_latent_vectors(images_and_latents, print_process=True)
+    print("cluster_latent_vectors завершено")
+    cluster_sizes = cluster_measuring(state.img_clusters)
+    print("cluster_measuring завершено")
+    state.status = {"status": "readyToPopulate",
+                    "classesSizes": cluster_sizes,
+                    "imagesNames": state.img_names,
+                    "imagesFolder": state.img_dir,
+                    "time": time() - start_time
+                    }
+    return state.status
 
 def cluster_measuring(clusters):
     # Размеры кластеров
@@ -769,6 +709,8 @@ def run_server(host_link, port_link):
 
 if __name__ == '__main__':
     threading.Thread(target=lambda: run_server(HOST_LINK, PORT_LINK), daemon=True).start()
-    launch_gui(HOST_LINK, PORT_LINK)
+    if not IS_COLAB:
+        launch_gui(HOST_LINK, PORT_LINK)
+    
     print(f"Clagnosco v{PROJECT_VERSION} запущен на {HOST_LINK}:{PORT_LINK}")
 
