@@ -20,7 +20,6 @@ import tempfile
 from tqdm import tqdm
 from torchmetrics.functional import structural_similarity_index_measure as ssim
 
-
 import warnings
 warnings.filterwarnings('ignore')
 
@@ -410,7 +409,7 @@ def run_image_through_autoencoder(model, input_image, decode=True):
         return latent.squeeze(0), None
 
 
-def test_model(model, test_batches, transformed_dataset):
+def test_model(model, test_batches, transformed_dataset, loss_type="MSE"):
     """
     Проверка модели на тестовом наборе данных.
 
@@ -418,6 +417,7 @@ def test_model(model, test_batches, transformed_dataset):
         - model: обученная модель автоэнкодера
         - test_batches: список [(ширина, высота), [idx1, idx2, ...]] батчей
         - transformed_dataset: экземпляр TransformedClagnoscoDataset
+        - loss_type: тип потерь (по умолчанию "MSE") "MSE", "MAE", "Cosine"
     Выходные данные:
         - avg_loss: средняя ошибка пиксельной реконструкции (MSE) для каждого тестового изображения
         - losses: ошибка пиксельной реконструкции (MSE) для каждого тестового изображения
@@ -433,8 +433,17 @@ def test_model(model, test_batches, transformed_dataset):
         test_image = sample['image'].unsqueeze(0).to(DEVICE)
         test_image_square = sample['image_square'].unsqueeze(0).to(DEVICE)
         with torch.no_grad():
-            _, recon = model(test_image)
-            loss = F.mse_loss(recon, test_image_square).item()
+            latent, recon = model(test_image)
+            if loss_type == "MSE":
+                loss = F.mse_loss(recon, test_image_square).item()
+            elif loss_type == "MAE":
+                loss = F.l1_loss(recon, test_image_square).item()
+            elif loss_type == "Cosine":
+                recon_flat = recon.view(recon.size(0), -1)
+                test_image_square_flat = test_image_square.view(test_image_square.size(0), -1)
+                loss = 1 - F.cosine_similarity(recon_flat, test_image_square_flat).mean().item()
+            else:
+                raise ValueError(f"Неизвестный тип теста: {loss_type}")
         losses.append(loss)
         current_avg_loss = sum(losses) / len(losses)
         tqdm_bar.set_postfix(ср_потери=f"{current_avg_loss:.4f}", потери=f"{loss:.4f}")
@@ -442,9 +451,9 @@ def test_model(model, test_batches, transformed_dataset):
     print(f"Средняя ошибка: {avg_loss:.6f}")
     return avg_loss, losses
 
-def pixel_rgb_accuracy(img1: Image.Image, img2: Image.Image):
+def pixel_rgb_vector_accuracy(img1: Image.Image, img2: Image.Image,):
     """
-    Возвращает Accuracy (нормализованное евклидово сходство) через векторное расстояние RGB пискелей между двумя PIL изображениями.
+    Возвращает Vector Accuracy (векторная точность) через евклидово расстояние векторов RGB пискелей между двумя PIL изображениями.
     """
     img1 = np.asarray(img1.convert("RGB"), dtype=np.float32) / 255.0
     img2 = np.asarray(img2.convert("RGB"), dtype=np.float32) / 255.0
@@ -468,7 +477,7 @@ def test_model_accuracy(model, test_batches, dataset):
         test_image_square = sample['image_square']
 
         _, recon = run_image_through_autoencoder(model, test_image)
-        img_accuracy = pixel_rgb_accuracy(recon, test_image_square)
+        img_accuracy = pixel_rgb_vector_accuracy(recon, test_image_square)
 
         img_accuracies.append(img_accuracy)
         current_avg_img_accuracies = sum(img_accuracies) / len(img_accuracies)
