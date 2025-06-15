@@ -8,7 +8,7 @@
     <script src="{{ url_for('static', filename='main.js') }}"></script>
     <script src="{{ url_for('static', filename='templates.js') }}"></script>
     <title>Clagnosco - Классификация изображений</title>
-    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='svg/clagnosco.svg') }}">
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='images/clagnosco.ico') }}">
 </head>
 <body onload="setupClagnosco();">
     <div id="custom-alert" class="custom-alert">
@@ -49,6 +49,7 @@
             <div class="init-tab">
                 <div class="project-name">
                     <div class="project-name-text">Clagnosco</div>
+                    <label class="project-version">v1.0</label>
                     <button class="class-button class-button-info" title="Информация о Clagnosco" onclick="
                         window.open('https://github.com/pogorzelskich/clagnosco', '_blank')"
                     "></button>
