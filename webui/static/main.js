@@ -715,6 +715,8 @@ function deleteAllClagnoscoClasses(confirmDeletingAll=true) {
     let classesList = document.getElementById('classesList');
     classesList.innerHTML = '';
     
+    document.querySelector(".classes-header").children[0].textContent = 'Классы (' + document.querySelectorAll('.class-selection').length + ')';
+
     // Send changes to server
 }
 
@@ -930,6 +932,8 @@ async function populateModels(populate=true, localModelsInclude=true, internetMo
 
         sendToServer(instruction).then(answer => {
             if (answer["status"] === "readyToInit") {
+                document.getElementById("projectVersion").textContent = `v${answer["projectVersion"]}`;
+
                 let modelNames = answer["modelNames"];
                 for (let i = 0; i < modelNames.length; i++) {
                     baseAddModelTemplate(modelName=modelNames[i]);
@@ -999,6 +1003,10 @@ function deleteClagnoscoClassServer(clagnoscoClassID, currentClagnoscoClass, isS
             currentClagnoscoClass.remove();
             redoIndexing();
             enableAllClagnoscoClasses();
+            
+            document.querySelector(".classes-header").children[0].textContent =
+                'Классы (' + document.querySelectorAll('.class-selection').length + ')';
+
         } else if (answer["status"] === "error") {
             alert(answer["message"]);
             enableAllClagnoscoClasses();

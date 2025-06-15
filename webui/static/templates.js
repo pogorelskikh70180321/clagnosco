@@ -119,4 +119,7 @@ function baseAddModelTemplate(modelName="download", modelCaption=undefined) {
     }
     let modelsListElement = document.getElementById('modelNameSelect');
     modelsListElement.appendChild(option);
+    
+    document.querySelector(".classes-header").children[0].textContent =
+        'Классы (' + document.querySelectorAll('.class-selection').length + ')';
 }
