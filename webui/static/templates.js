@@ -44,6 +44,9 @@ function baseAddClagnoscoClassTemplate(nameText="", sizeText=0) {
     let div = clagnoscoClassTemplate(indexText=-1, nameText=nameText, sizeText=sizeText);
     let classesListElement = document.getElementById('classesList');
     classesListElement.appendChild(div);
+
+    document.querySelector(".classes-header").children[0].textContent =
+        'Классы (' + document.querySelectorAll('.class-selection').length + '):';
 }
 
 
@@ -119,7 +122,4 @@ function baseAddModelTemplate(modelName="download", modelCaption=undefined) {
     }
     let modelsListElement = document.getElementById('modelNameSelect');
     modelsListElement.appendChild(option);
-    
-    document.querySelector(".classes-header").children[0].textContent =
-        'Классы (' + document.querySelectorAll('.class-selection').length + ')';
 }

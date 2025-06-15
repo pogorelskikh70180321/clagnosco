@@ -715,7 +715,8 @@ function deleteAllClagnoscoClasses(confirmDeletingAll=true) {
     let classesList = document.getElementById('classesList');
     classesList.innerHTML = '';
     
-    document.querySelector(".classes-header").children[0].textContent = 'Классы (' + document.querySelectorAll('.class-selection').length + ')';
+    document.querySelector(".classes-header").children[0].textContent =
+        'Классы (' + document.querySelectorAll('.class-selection').length + '):';
 
     // Send changes to server
 }
