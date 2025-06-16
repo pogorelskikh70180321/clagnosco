@@ -317,7 +317,7 @@ function clusterImages(imagesCount=-1, isImport=false) {
                 showCustomAlert(`Все изображения обработаны (${clagnoscoImagesNames.length}). Было найдено следующее количество кластеров: ${clagnoscoClassesSizes.length}`);
 
             } else {
-                showCustomAlert(`Таблица была успешно импортирована. Было найдено следующее количество кластеров: ${clagnoscoClassesSizes.length}`);
+                showCustomAlert(`Таблица была успешно импортирована. Было загружено следующее количество классов: ${clagnoscoClassesSizes.length}`);
 
             }
 
