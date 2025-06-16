@@ -1,8 +1,7 @@
-# clagnosco
+# Clagnosco
 
-Демонстрация автоэнкодера в Google Colab
-https://colab.research.google.com/drive/1uIK0WB6VoY9a0wmVvnKzAR4Br4ohA4jC
+Сcлыка на загрузку исполняемого файла проекта (exe) в Google Drive:
+https://drive.google.com/file/d/1chSWvKB7YW7CcqiWsKvhN1nqmIjUh-WN/view?usp=sharing
 
-
-Ссылка на Hugging Face с моделью и 200 картинками для проверки модели
-https://huggingface.co/pogorzelskich/clagnosco_2025-05-11/tree/main
+Ссылка на модель в Hugging Face: 
+https://huggingface.co/pogorzelskich/clagnosco_2025-05-11/blob/main/model.pt
