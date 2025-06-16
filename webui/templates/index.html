@@ -54,7 +54,7 @@
                         window.open('https://github.com/pogorzelskich/clagnosco', '_blank')"
                     "></button>
                 </div>
-                <input type="text" id="localFolder" placeholder="Введите путь к папке с изображениями" value="C:\!project-dataset\z_images_small"/>
+                <input type="text" id="localFolder" placeholder="Введите путь к папке с изображениями" value=""/>
 
                 <label class="init-tab-label">Модель (из папки «models»)</label>
                 <select id="modelNameSelect">
@@ -67,7 +67,8 @@
                 </div>
 
                 <div class="init-button-area" id="menuStatusInit">
-                    <button class="init-btn-import-data" id="initButtonImportData" onclick="importData();">Импорт таблицы</button>
+                    <input type="file" id="csvFileInput" accept=".csv" style="display: none;" onchange="importData();">
+                    <button class="init-btn-import-data" onclick="document.getElementById('csvFileInput').click();">Импорт таблицы</button>
                     <button class="init-btn-process" id="initButtonProcess" onclick="launchProcessing();">Обработать</button>
                 </div>
 

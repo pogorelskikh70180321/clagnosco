@@ -18,6 +18,7 @@ import gc
 import time
 import os
 import sys
+from io import StringIO
 
 from autoencoder import *
 from cluster import *
@@ -162,6 +163,8 @@ def fetch():
         result = launch_processing(data)
     elif data['command'] == 'clusterImages':
         result = cluster_images()
+    elif data['command'] == 'clusterImagesFake':
+        result = cluster_images_fake()
     elif data['command'] == 'imageProbsGet':
         result = image_probs_get(data)
     elif data['command'] == 'clearCache':
@@ -187,7 +190,7 @@ def fetch():
     elif data['command'] == 'unloadModel':
         result = unload_model()
     elif data['command'] == 'importData':
-        result = import_data()
+        result = import_data(data)
     elif data['command'] == 'endSession':
         result = {"status": "sessionEnded"}
     else:
@@ -317,6 +320,19 @@ def image_probs_get(data):
 
     state.status = {"status": "imagesProbs",
                     "probs": state.img_clusters[data['id']][1],
+                    "time": time.time() - start_time
+                    }
+    return state.status
+
+def cluster_images_fake():
+    start_time = time.time()
+    state = app.state
+    
+    cluster_sizes = cluster_measuring(state.img_clusters)
+    state.status = {"status": "readyToPopulate",
+                    "classesSizes": cluster_sizes,
+                    "imagesNames": state.img_names,
+                    "imagesFolder": state.img_dir,
                     "time": time.time() - start_time
                     }
     return state.status
@@ -595,7 +611,7 @@ def save_table():
 
         df = pd.DataFrame(table_list, columns=table_columns)
         # df_csv = df.to_csv(index=False, encoding="utf-8-sig", sep=";")
-        df_csv = df.to_csv(index=False, encoding="cp1251", sep=";")
+        df_csv = df.to_csv(index=False, encoding="utf-8", sep=";")  # encoding="cp1251"
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         csv_file_name = f"clagnosco классы {timestamp}.csv"
 
@@ -652,14 +668,61 @@ def import_data(data):
     start_time = time.time()
     state = app.state
     try:
-        state.status = {"status": "dataImported",
-                        "time": time.time() - start_time}
+        csv_data = data["table"]
+
+        df = pd.read_csv(StringIO(csv_data), sep=";", encoding="utf-8")
+        df = df.fillna("")
+
+        if not isinstance(csv_data, str):
+            raise ValueError(f"Ожидалась строка CSV, но получен тип {type(csv_data).__name__}")
+        
+        img_dir_column = [col for col in df.columns if col.startswith("Директория - ")]
+        if not img_dir_column:
+            raise ValueError("Не найдена колонка с директорией в виде: \"Директория - путь\\к\\папке\")")
+        
+        img_dir = img_dir_column[0].replace("Директория - ", "", 1).strip()
+        
+        if not os.path.isdir(img_dir):
+            raise ValueError(f"Директория не существует: {img_dir}")
+        
+        state.img_dir = img_dir
+
+
+        required_columns = {"ID класса", "Имя класса", "Изображение", "Вероятность", "Входит в класс"}
+        if not required_columns.issubset(df.columns):
+            raise ValueError(f"Некорректный формат CSV-файла. Нужны все столбцы: {str(required_columns)}")
+        df["Вероятность"] = df["Вероятность"].str.replace(",", ".").astype(float)
+        
+        clusters = []
+        for class_id in sorted(df["ID класса"].unique()):
+            class_rows = df[df["ID класса"] == class_id]
+            class_name = class_rows["Имя класса"].iloc[0]
+            cluster = []
+
+            for _, row in class_rows.iterrows():
+                img = row["Изображение"]
+                prob = row["Вероятность"]
+                is_member = bool(int(row["Входит в класс"]))
+                cluster.append((img, prob, is_member))
+
+            clusters.append((class_name, cluster))
+
+        state.img_clusters = clusters
+
+
+        state.status = {
+            "status": "dataImported",
+            "imgDir": img_dir,
+            "time": time.time() - start_time
+        }
         return state.status
-    except:
+    
+    except Exception as e:
+        print(f"Ошибка импорта: {str(e)}")
         state.status = {
             "status": "error",
             "type": "Import error",
-            "message": f"Ошибка импорта классов через таблицу",
+            "message": f"Ошибка импорта: {str(e)}",
             "time": time.time() - start_time
         }
         return state.status

@@ -157,13 +157,14 @@ function clearCache(confirmClearingCache=true) {
     sendToServer(instruction).then(answer => {
         if (answer["status"] === "cacheCleared") {
             showCustomAlert("Кэш успешно очищен в выбранной директории", timeout=5000);
-            cacheButton.disabled = false;
-            launchButton.disabled = false;
         } else if (answer["status"] === "error") {
             alert(answer["message"]);
         } else {
             // alert("Странный ответ сервера.");
         }
+        cacheButton.disabled = false;
+        importButton.disabled = false;
+        launchButton.disabled = false;
     }).catch(error => {
         console.error("Ошибка обработки запроса:", error);
         cacheButton.disabled = false;
@@ -287,15 +288,19 @@ function launchProcessing(confirmLaunchProcessing=true) {
     });
 }
 
-function clusterImages(imagesCount=-1) {
+function clusterImages(imagesCount=-1, isImport=false) {
     let menuStatusProcessingText = document.getElementById("menuStatusProcessing").children[1];
-    if (imagesCount === -1) {
-        menuStatusProcessingText.textContent = "Обработка изображений...";
+    let instruction;
+    if (!isImport) {
+        if (imagesCount === -1) {
+            menuStatusProcessingText.textContent = "Обработка изображений...";
+        } else {
+            menuStatusProcessingText.textContent = `Обработка изображений (${imagesCount})...`;
+        }
+        instruction = {'command': 'clusterImages'};
     } else {
-        menuStatusProcessingText.textContent = `Обработка изображений (${imagesCount})...`;
+        instruction = {'command': 'clusterImagesFake'};
     }
-
-    let instruction = {'command': 'clusterImages'};
     
     sendToServer(instruction).then(answer => {
         if (answer["status"] === "readyToPopulate") {
@@ -307,8 +312,15 @@ function clusterImages(imagesCount=-1) {
             imagesFolder = answer["imagesFolder"];
             
             menuStatusProcessingText.textContent = "Распределение кластеров...";
+            
+            if (!isImport) {
+                showCustomAlert(`Все изображения обработаны (${clagnoscoImagesNames.length}). Было найдено следующее количество кластеров: ${clagnoscoClassesSizes.length}`);
 
-            showCustomAlert(`Все изображения обработаны (${clagnoscoImagesNames.length}). Было найдено следующее количество кластеров: ${clagnoscoClassesSizes.length}`);
+            } else {
+                showCustomAlert(`Таблица была успешно импортирована. Было найдено следующее количество кластеров: ${clagnoscoClassesSizes.length}`);
+
+            }
+
             populateClagnoscoClasses();
             // populateImages();
 
@@ -324,10 +336,6 @@ function clusterImages(imagesCount=-1) {
 
         } else if (answer["status"] === "error") {
             alert(answer["message"]);
-
-            // if (answer["type"] === "Too few images") {
-            //     showCustomAlert(answer["message"])
-            // }
             
             resetAll(confirmResetAll=false);
         } else {
@@ -1246,5 +1254,79 @@ async function endSession() {
 }
 
 function importData() {
-    // !!!!!!!!
+    const fileInput = document.getElementById('csvFileInput');
+    const file = fileInput.files[0];
+
+    if (!file) {
+        console.log("Файл импорта не выбран");
+        return;
+    }
+
+    const fileName = file.name.toLowerCase();
+    if (!fileName.endsWith('.csv')) {
+        console.log("Неверный формат импорта файла. Требуется .csv");
+        fileInput.value = "";
+        return;
+    }
+
+    let imgDir = document.getElementById("localFolder");
+    let modelName = document.getElementById("modelNameSelect");
+    let caching = document.getElementById("caching");
+
+    imgDir.disabled = true;
+    modelName.disabled = true;  
+    caching.disabled = true;
+
+    
+    let menuStatusProcessingText = document.getElementById("menuStatusProcessing").children[1];
+    menuStatusProcessingText.textContent = "Импорт данных...";
+    
+    let menuStatusInit = document.getElementById("menuStatusInit");
+    let menuStatusProcessing = document.getElementById("menuStatusProcessing");
+    let menuStatusDone = document.getElementById("menuStatusDone");
+    let menuStatusClear = document.getElementById("menuStatusClear");
+    
+    menuStatusProcessing.children[1].textContent = "Импорт данных...";
+
+    menuStatusInit.classList.add("hidden");
+    menuStatusProcessing.classList.remove("hidden");
+    menuStatusDone.classList.add("hidden");
+    menuStatusClear.classList.add("hidden");
+
+    
+    const reader = new FileReader();
+
+    reader.onload = function (e) {
+        const csvText = e.target.result;
+        
+        const instruction = {
+            command: 'importData',
+            table: csvText
+        };
+
+        sendToServer(instruction).then(answer => {
+            if (answer["status"] === "dataImported") {
+                imgDir.value = answer["imgDir"];
+                clusterImages(-1, true);
+            } else if (answer["status"] === "error") {
+                alert(answer["message"]);
+                resetAll(confirmResetAll=false);
+            } else {
+                resetAll(confirmResetAll=false);
+            }
+            fileInput.value = "";
+        }).catch(error => {
+            console.error("Ошибка обработки запроса:", error);
+            resetAll(confirmResetAll=false);
+            fileInput.value = "";
+        });
+    };
+
+    reader.onerror = function () {
+        console.error("Ошибка чтения CSV-файла.");
+        fileInput.value = "";
+    };
+
+    reader.readAsText(file, "utf-8");
 }
+
