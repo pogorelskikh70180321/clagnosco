@@ -7,39 +7,29 @@
 #  Специализация / Профиль подготовки: Искусственный интеллект и анализ данных
 #  Учебная группа: ИД 23.3/Б3-21
 
-PROJECT_VERSION = "1.0"
-
-HOST_LINK = '127.0.0.1'
-PORT_LINK = 5000
-
-if __name__ == '__main__':
-    print(f"===== Запуск Clagnosco v{PROJECT_VERSION} =====")
-
 from flask import Flask, render_template, send_file, abort, request, jsonify
 import logging
-import os
 from PIL import Image
 import io
 import shutil
 import pandas as pd
 from datetime import datetime
-from time import time
 import gc
-import webbrowser
-import tkinter as tk
-import threading
-
-try:
-    import google.colab
-    IS_COLAB = True
-except:
-    IS_COLAB = False
+import time
+import os
+import sys
 
 from autoencoder import *
 from cluster import *
 
 import warnings
 warnings.filterwarnings('ignore')
+
+PROJECT_VERSION = "1.0"
+
+HOST_LINK = '127.0.0.1'
+PORT_LINK = 5000
+
 
 class AppState:
     def __init__(self):
@@ -52,8 +42,14 @@ class AppState:
         self.status = {"status": "idle"}
         self.session_id = None
 
+def resource_dir(relative_dir):
+    try:
+        base_dir = sys._MEIPASS
+    except Exception:
+        base_dir = os.path.abspath(".")
+    return os.path.join(base_dir, relative_dir)
 
-app = Flask(__name__, static_folder='webui/static', template_folder='webui/templates')
+app = Flask(__name__, static_folder=resource_dir('webui/static'), template_folder=resource_dir('webui/templates'))
 app.state = AppState()
 
 
@@ -153,13 +149,13 @@ def fetch():
         return jsonify({"status": "oldSession"})
 
     if data['command'] == 'basicResponse':
-        start_time = time()
+        start_time = time.time()
         if state.status == "idle":
             return {}
         
         state.status = {
             "status": "basicResponseSuccess",
-            "time": time() - start_time
+            "time": time.time() - start_time
             }
         return state.status
     elif data['command'] == 'launchProcessing':
@@ -199,7 +195,7 @@ def fetch():
     return jsonify(result)
 
 def clear_cache_webui(data):
-    start_time = time()
+    start_time = time.time()
     state = app.state
     try:
         state.img_dir = data['imgDir'].strip('"')
@@ -207,20 +203,20 @@ def clear_cache_webui(data):
         if state.img_dir[-1] not in ["\\", "/"]:
             state.img_dir = state.img_dir + "\\"
         clear_cache(state.img_dir)
-        state.status = {"status": "cacheCleared", "time": time() - start_time}
+        state.status = {"status": "cacheCleared", "time": time.time() - start_time}
         return state.status
     except:
         state.status = {
             "status": "error",
             "type": "Cache deletion issue",
             "message": f"Возникла ошибка при удалении кэша",
-            "time": time() - start_time
+            "time": time.time() - start_time
             }
         return state.status
 
 
 def launch_processing(data):
-    start_time = time()
+    start_time = time.time()
     state = app.state
 
     try:
@@ -254,14 +250,14 @@ def launch_processing(data):
 
         state.caching = data['caching']
         state.status = {"status": "readyToCluster",
-                        "time": time() - start_time}
+                        "time": time.time() - start_time}
         return state.status
     except:
         state.status = {
             "status": "error",
             "type": "Launch error",
             "message": f"Ошибка запуска",
-            "time": time() - start_time
+            "time": time.time() - start_time
             }
         return state.status
 
@@ -274,12 +270,12 @@ def state_error_model_load(state, name, start_time):
         "status": "error",
         "type": "Local model not found",
         "message": f"Модель \"{name}\" не найдена",
-        "time": time() - start_time
+        "time": time.time() - start_time
         }
     return state.status
 
 def cluster_images():
-    start_time = time()
+    start_time = time.time()
     state = app.state
     state.img_clusters = []
     images_and_latents, _, _ = images_to_latent(image_folder=state.img_dir,
@@ -294,7 +290,7 @@ def cluster_images():
             "status": "error",
             "type": "Too few images",
             "message": f"Было найдено данное количество изображений: {len(images_and_latents)}. Требуется как минимум 2.",
-            "time": time() - start_time
+            "time": time.time() - start_time
             }
         return state.status
     
@@ -307,7 +303,7 @@ def cluster_images():
                     "classesSizes": cluster_sizes,
                     "imagesNames": state.img_names,
                     "imagesFolder": state.img_dir,
-                    "time": time() - start_time
+                    "time": time.time() - start_time
                     }
     return state.status
 
@@ -316,17 +312,17 @@ def cluster_measuring(clusters):
     return [(cluster[0], sum([i[2] for i in cluster[1]])) for cluster in clusters]
 
 def image_probs_get(data):
-    start_time = time()
+    start_time = time.time()
     state = app.state
 
     state.status = {"status": "imagesProbs",
                     "probs": state.img_clusters[data['id']][1],
-                    "time": time() - start_time
+                    "time": time.time() - start_time
                     }
     return state.status
 
 def models_in_folder():
-    start_time = time()
+    start_time = time.time()
     state = app.state
 
     if not os.path.exists(SAVE_FOLDER):
@@ -334,12 +330,12 @@ def models_in_folder():
     state.status = {"status": "readyToInit",
                     "modelNames": [f for f in os.listdir(SAVE_FOLDER) if f.endswith('.pt')],
                     "projectVersion": PROJECT_VERSION,
-                    "time": time() - start_time
+                    "time": time.time() - start_time
                     }
     return state.status
 
 def add_empty_clagnosco_class():
-    start_time = time()
+    start_time = time.time()
     state = app.state
     
     try:
@@ -347,7 +343,7 @@ def add_empty_clagnosco_class():
         state.img_clusters.append(empty_clagnosco_class)
 
         state.status = {"status": "emptyClagnoscoClassAdded",
-                        "time": time() - start_time
+                        "time": time.time() - start_time
                         }
         return state.status
     except:
@@ -355,12 +351,12 @@ def add_empty_clagnosco_class():
             "status": "error",
             "type": "Adding empty class error",
             "message": f"Ошибка добаления пустого класса",
-            "time": time() - start_time
+            "time": time.time() - start_time
             }
         return state.status
 
 def create_rest_clagnosco_class():
-    start_time = time()
+    start_time = time.time()
     state = app.state
     
     try:
@@ -381,7 +377,7 @@ def create_rest_clagnosco_class():
         state.status = {"status": "restClagnoscoClassCreated",
                         "name": rest_clagnosco_class[0],
                         "size": len(rest_images_list),
-                        "time": time() - start_time
+                        "time": time.time() - start_time
                         }
         return state.status
     except:
@@ -389,12 +385,12 @@ def create_rest_clagnosco_class():
             "status": "error",
             "type": "Adding empty class error",
             "message": f"Ошибка добаления пустого класса",
-            "time": time() - start_time
+            "time": time.time() - start_time
             }
         return state.status
 
 def rename_clagnosco_class(data):
-    start_time = time()
+    start_time = time.time()
     state = app.state
     
     try:
@@ -406,7 +402,7 @@ def rename_clagnosco_class(data):
         state.status = {"status": "clagnoscoClassRenamed",
                         "oldName": old_name,
                         "newName": new_name,
-                        "time": time() - start_time
+                        "time": time.time() - start_time
                         }
         return state.status
     except:
@@ -414,12 +410,12 @@ def rename_clagnosco_class(data):
             "status": "error",
             "type": "Renaming class error",
             "message": f"Ошибка переименования класса",
-            "time": time() - start_time
+            "time": time.time() - start_time
             }
         return state.status
 
 def copy_clagnosco_class(data):
-    start_time = time()
+    start_time = time.time()
     state = app.state
     
     try:
@@ -428,7 +424,7 @@ def copy_clagnosco_class(data):
         state.img_clusters.append(clagnosco_class_copy)
 
         state.status = {"status": "clagnoscoClassCopied",
-                        "time": time() - start_time
+                        "time": time.time() - start_time
                         }
         return state.status
     except:
@@ -436,12 +432,12 @@ def copy_clagnosco_class(data):
             "status": "error",
             "type": "Copying class error",
             "message": f"Ошибка копирования класса",
-            "time": time() - start_time
+            "time": time.time() - start_time
             }
         return state.status
 
 def delete_clagnosco_class(data):
-    start_time = time()
+    start_time = time.time()
     state = app.state
     
     try:
@@ -449,7 +445,7 @@ def delete_clagnosco_class(data):
         state.img_clusters.pop(clagnosco_class_id)
 
         state.status = {"status": "clagnoscoClassDeleted",
-                        "time": time() - start_time
+                        "time": time.time() - start_time
                         }
         return state.status
     except:
@@ -457,12 +453,12 @@ def delete_clagnosco_class(data):
             "status": "error",
             "type": "Deleting class error",
             "message": f"Ошибка удаления класса",
-            "time": time() - start_time
+            "time": time.time() - start_time
             }
         return state.status
 
 def clagnosco_class_images_selection_update(data):
-    start_time = time()
+    start_time = time.time()
     state = app.state
     
     try:
@@ -483,7 +479,7 @@ def clagnosco_class_images_selection_update(data):
         
 
         state.status = {"status": "clagnoscoClassImagesSelectionUpdated",
-                        "time": time() - start_time
+                        "time": time.time() - start_time
                         }
         return state.status
     except:
@@ -491,12 +487,12 @@ def clagnosco_class_images_selection_update(data):
             "status": "error",
             "type": "Updating selections class error",
             "message": f"Ошибка обновления выбора в классе",
-            "time": time() - start_time
+            "time": time.time() - start_time
             }
         return state.status
 
 def save_folder(data):
-    start_time = time()
+    start_time = time.time()
     state = app.state
 
     def name_url(name):
@@ -565,7 +561,7 @@ def save_folder(data):
 
         state.status = {"status": "saveFolderSuccess",
                         "folder": state.img_dir,
-                        "time": time() - start_time}
+                        "time": time.time() - start_time}
         return state.status
     except Exception as e:
         state.status = {
@@ -573,13 +569,13 @@ def save_folder(data):
             "type": "Saving folder error",
             "message": f"Возникла ошибка распределения изображений по субдиректориям в папке «{state.img_dir}»",
             "console": f"Ошибка: {e.__class__.__name__}: {str(e)}",
-            "time": time() - start_time
+            "time": time.time() - start_time
         }
         return state.status
 
 
 def save_table():
-    start_time = time()
+    start_time = time.time()
     state = app.state
     try:
         img_dir = state.img_dir
@@ -606,19 +602,19 @@ def save_table():
         state.status = {"status": "saveTableSuccess",
                         "table": df_csv,
                         "fileName": csv_file_name, 
-                        "time": time() - start_time}
+                        "time": time.time() - start_time}
         return state.status
     except:
         state.status = {
             "status": "error",
             "type": "Saving table error",
             "message": f"Возникла ошибка создания таблицы",
-            "time": time() - start_time
+            "time": time.time() - start_time
         }
         return state.status
 
 def unload_model():
-    start_time = time()
+    start_time = time.time()
     state = app.state
     try:
         message = "Нет модели в памяти"
@@ -641,76 +637,37 @@ def unload_model():
         state.model_name = None
         state.status = {"status": "modelUnloaded",
                         "message": message,
-                        "time": time() - start_time}
+                        "time": time.time() - start_time}
         return state.status
     except:
         state.status = {
             "status": "error",
             "type": "Model unloading error",
             "message": f"Ошибка выгрузки модели",
-            "time": time() - start_time
+            "time": time.time() - start_time
         }
         return state.status
 
 def import_data(data):
-    start_time = time()
+    start_time = time.time()
     state = app.state
     try:
         state.status = {"status": "dataImported",
-                        "time": time() - start_time}
+                        "time": time.time() - start_time}
         return state.status
     except:
         state.status = {
             "status": "error",
             "type": "Import error",
             "message": f"Ошибка импорта классов через таблицу",
-            "time": time() - start_time
+            "time": time.time() - start_time
         }
         return state.status
 
-def resource_dir(selected_dir):
-    try:
-        base_dir = sys._MEIPASS  # путь в PyInstaller
-    except:
-        base_dir = os.path.abspath(".")
-
-    return os.path.join(base_dir, selected_dir)
-
-def launch_gui(host_link, port_link):
-    root = tk.Tk()
-    root.title("Clagnosco")
-    root.geometry("600x75")
-    root.resizable(False, False)
-
-    icon_dir = resource_dir("webui/static/images/clagnosco.ico")
-    root.iconbitmap(icon_dir)
-
-    button = tk.Button(
-        root,
-        text="Открыть Clagnosco в браузере",
-        bg="#00af09",
-        fg="white",
-        font=("Segoe UI", 30),
-        command=lambda: webbrowser.open(f'http://{host_link}:{port_link}/')
-    )
-    
-    button.pack()
-
-    def on_close():
-        root.destroy()
-        os._exit(0)
-
-    root.protocol("WM_DELETE_WINDOW", on_close)
-    root.mainloop()
 
 def run_server(host_link, port_link):
     app.run(host=host_link, port=port_link, debug=False, use_reloader=False)
 
 
 if __name__ == '__main__':
-    threading.Thread(target=lambda: run_server(HOST_LINK, PORT_LINK), daemon=True).start()
-    if not IS_COLAB:
-        launch_gui(HOST_LINK, PORT_LINK)
-    
-    print(f"Clagnosco v{PROJECT_VERSION} запущен на {HOST_LINK}:{PORT_LINK}")
-
+    run_server(HOST_LINK, PORT_LINK)
