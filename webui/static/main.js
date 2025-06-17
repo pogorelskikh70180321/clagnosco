@@ -1460,7 +1460,7 @@ async function exitClagnosco(confirmExitClagnosco=true) {
     }
     
     if (!serverConnect) {
-        showCustomAlert("Работа Clagnosco уже была заверешна", -1)
+        showCustomAlert("Работа Clagnosco уже была завершена", -1)
         return false;
     }
     
@@ -1468,8 +1468,8 @@ async function exitClagnosco(confirmExitClagnosco=true) {
 
     sendToServer(instruction, false, true).then(answer => {
         if (answer) {
-            showCustomAlert("Работа Clagnosco заверешна", -1)
-            console.log("Работа Clagnosco заверешна");
+            showCustomAlert("Работа Clagnosco завершена", -1)
+            console.log("Работа Clagnosco завершена");
             serverConnect = false;
         } else {
             console.log("Странное выполнение завершения Clagnosco");
