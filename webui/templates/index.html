@@ -53,22 +53,30 @@
                     <button class="class-button class-button-info" title="Информация о Clagnosco" onclick="
                         window.open('https://github.com/pogorzelskich/clagnosco', '_blank')"
                     "></button>
+                    <button class="class-button class-button-x" style="margin-left: auto;" title="Закрыть программу Clagnosco" onclick="exitClagnosco();"></button>
                 </div>
                 <input type="text" id="localFolder" placeholder="Введите путь к папке с изображениями" value=""/>
 
-                <label class="init-tab-label">Модель (из папки «models»)</label>
+                <label class="init-tab-label">Модель (из папки «models»):</label>
                 <select id="modelNameSelect">
                     <option value="download">model.pt (использование модели из интернета без сохранения на диск)</option>
                 </select>
 
                 <div class="checkbox">
                     <input type="checkbox" id="caching" checked/>
-                    <label for="caching">Кэшировать латентные векторы</label>
+                    <label for="caching" class="init-tab-checkbox-label">Кэшировать латентные векторы</label>
+                </div>
+
+                <label class="init-tab-label" style="margin-top: 4px;">Количество кластеров (не больше картинок):</label>
+                <div class="checkbox" style="height: 26px;">
+                    <input type="checkbox" id="clusterAuto" checked onchange="changeClusterAuto();"/>
+                    <label for="clusterAuto" class="init-tab-checkbox-label">Автоматическое</label>
+                    <input type="number" class="init-tab-cluser-number hidden" id="clusterNumber" value="2" min="2" max="100" step="1">
                 </div>
 
                 <div class="init-button-area" id="menuStatusInit">
                     <input type="file" id="csvFileInput" accept=".csv" style="display: none;" onchange="importData();">
-                    <button class="init-btn-import-data" onclick="document.getElementById('csvFileInput').click();">Импорт таблицы</button>
+                    <button class="init-btn-import-data" id="initButtonImportData" onclick="document.getElementById('csvFileInput').click();">Импорт таблицы</button>
                     <button class="init-btn-process" id="initButtonProcess" onclick="launchProcessing();">Обработать</button>
                 </div>
 

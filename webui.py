@@ -38,6 +38,7 @@ class AppState:
         self.model_name = None
         self.model = None
         self.caching = True
+        self.cluster_number = -1
         self.img_names = []
         self.img_clusters = []
         self.status = {"status": "idle"}
@@ -142,7 +143,7 @@ def fetch():
 
     if data['command'] == 'endSession':
         state.session_id = None
-    elif data['command'] in ['modelsInFolder', 'clearCache', 'unloadModel', 'basicResponse']:
+    elif data['command'] in ['modelsInFolder', 'clearCache', 'unloadModel', 'basicResponse', 'exitClagnosco']:
         pass
     elif data['command'] in ['launchProcessing', 'importData']:
         state.session_id = incoming_session
@@ -193,6 +194,8 @@ def fetch():
         result = import_data(data)
     elif data['command'] == 'endSession':
         result = {"status": "sessionEnded"}
+    elif data['command'] == 'exitClagnosco':
+        os._exit(0)
     else:
         print(f"Неизвестный запрос:\n{data}")
     return jsonify(result)
@@ -252,6 +255,7 @@ def launch_processing(data):
                     return state_error_model_load(state, data['modelName'], start_time)
 
         state.caching = data['caching']
+        state.cluster_number = data['clusterNumber']
         state.status = {"status": "readyToCluster",
                         "time": time.time() - start_time}
         return state.status
@@ -298,7 +302,7 @@ def cluster_images():
         return state.status
     
     state.img_names = [item[0] for item in images_and_latents]
-    state.img_clusters = cluster_latent_vectors(images_and_latents, print_process=True)
+    state.img_clusters = cluster_latent_vectors(images_and_latents, cluster_amount=state.cluster_number, print_process=True)
     print("cluster_latent_vectors завершено")
     cluster_sizes = cluster_measuring(state.img_clusters)
     print("cluster_measuring завершено")
@@ -728,9 +732,9 @@ def import_data(data):
         return state.status
 
 
-def run_server(host_link, port_link):
-    app.run(host=host_link, port=port_link, debug=False, use_reloader=False)
+def run_server(host_link='127.0.0.1', port_link=5000, debug=False, use_reloader=False):
+    app.run(host=host_link, port=port_link, debug=debug, use_reloader=use_reloader)
 
 
 if __name__ == '__main__':
-    run_server(HOST_LINK, PORT_LINK)
+    run_server(HOST_LINK, PORT_LINK, debug=True, use_reloader=True)

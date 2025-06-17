@@ -21,7 +21,7 @@ html, body {
     pointer-events: none;
     transition: opacity 0.3s ease;
     position: fixed;
-    top: 20px;
+    top: 55px;
     left: 50%;
     transform: translateX(-50%);
     background: #000000d7;
@@ -136,13 +136,17 @@ html, body {
 .init-tab input[type="text"],
 .init-tab select {
     padding: 4px;
-    font-size: 14px;
+    font-size: 16px;
 }
 
 .init-tab .checkbox {
     display: flex;
     align-items: center;
     gap: 4px;
+}
+
+.init-tab-checkbox-label {
+    font-size: 16px !important;
 }
 
 .init-tab input[type="checkbox"] {
@@ -156,6 +160,13 @@ html, body {
 .init-button-area {
     display: flex;
     gap: 6px;
+}
+
+.init-tab-cluser-number {
+    width: 100px;
+    font-size: 16px;
+    text-align: center;
+    margin-left: auto;
 }
 
 .init-button-area button {

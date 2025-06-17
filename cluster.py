@@ -41,13 +41,16 @@ def determine_optimal_clusters_elbow(latents: np.ndarray) -> int:
     return optimal_k
 
 
-def cluster_latent_vectors(images_and_latents: List[Tuple[str, np.ndarray]], print_process=False) -> \
+def cluster_latent_vectors(images_and_latents: List[Tuple[str, np.ndarray]],
+                           cluster_amount=-1,
+                           print_process=False) -> \
         Tuple[str, Tuple[Tuple[str, float, bool], ...]]:
     """
     Кластеризовать латентные векторы с использованием метода адаптивного расстояния с запеченными параметрами.
     
     Входные данные:
         images_and_latents: Список из кортежей (имя файла, латентный вектор)
+        cluster_amount: Количество кластеров (-1 по умолчанию означает, что количество кластеров будет расчитано методом локтя)
         print_process: bool (по умолчанию False) -- печатает в консоль процесс выполнения
     
     Выходные данные:
@@ -64,9 +67,15 @@ def cluster_latent_vectors(images_and_latents: List[Tuple[str, np.ndarray]], pri
     scaler = StandardScaler()
     latents_scaled = scaler.fit_transform(latents)
     
-    # Расчёт оптимального количества k с помощью метода локтя
-    optimal_k = determine_optimal_clusters_elbow(latents_scaled)
-    print("optimal_k (Расчёт оптимального количества k с помощью метода локтя) завершено") if print_process else None
+    # Расчёт оптимального количества k с помощью метода локтя при cluster_amount == -1
+    if cluster_amount == -1:
+        optimal_k = determine_optimal_clusters_elbow(latents_scaled)
+        print(f"optimal_k (Расчёт оптимального количества k с помощью метода локтя) завершено: {optimal_k}") if print_process else None
+    elif cluster_amount > 1 and len(latents) > 1:
+        optimal_k = min(cluster_amount, len(latents))
+        print(f"optimal_k был выбран вручную: {optimal_k}") if print_process else None
+    else:
+        raise ValueError("Слишком малое количество кластеров.")
     
     # K-means центры кластеров
     kmeans = KMeans(n_clusters=optimal_k, random_state=42, n_init=10)

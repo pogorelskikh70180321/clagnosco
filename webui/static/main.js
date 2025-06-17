@@ -45,7 +45,7 @@ function showCustomAlert(message, timeout=5000) {
     }
 }
 
-async function sendToServer(data, isBasic=false) {
+async function sendToServer(data, isBasic=false, isExit=false) {
     data["sessionID"] = window.sessionId;
     try {
         if (loggingFetch) {
@@ -63,7 +63,7 @@ async function sendToServer(data, isBasic=false) {
             },
             body: JSON.stringify(data)
         });
-
+        
         if (reloadNeeded) {
             safeReload = true;
             serverConnect = true;
@@ -94,6 +94,9 @@ async function sendToServer(data, isBasic=false) {
         return answer;
 
     } catch (error) {
+        if (isExit) {
+            return true;
+        }
         if (oldSession) {
             return null;
         }
@@ -115,9 +118,7 @@ async function sendToServer(data, isBasic=false) {
                     serverConnect = false;
                     serverReconnect = false;
                     safeReload = true;
-                    if (!serverReconnect) {
-                        showCustomAlert("Потеряно соединение с сервером. Процесс не сохранён.", timeout=-1);
-                    }
+                    showCustomAlert("Потеряно соединение с сервером. Процесс не сохранён.", timeout=-1);
                 }
             }
         } else {
@@ -126,10 +127,8 @@ async function sendToServer(data, isBasic=false) {
                 serverConnect = false;
                 serverReconnect = false;
                 safeReload = true;
-                if (!serverReconnect) {
-                    showCustomAlert("Потеряно соединение с сервером. Процесс не сохранён.", timeout=-1);
-                }
             }
+            showCustomAlert("Потеряно соединение с сервером. Процесс не сохранён.", timeout=-1);
         }
         return { error: error.message };
     }
@@ -173,6 +172,42 @@ function clearCache(confirmClearingCache=true) {
     });
 }
 
+function changeClusterAuto() {
+    let clusterAuto = document.getElementById("clusterAuto");
+    let clusterNumber = document.getElementById("clusterNumber");
+
+    console.log(clusterNumber.value);
+    if (!clusterAuto.checked) {
+        changeClusterNumberFormat();
+        clusterNumber.classList.remove("hidden");
+    } else {
+        clusterNumber.classList.add("hidden");
+    }
+}
+
+function changeClusterNumberFormat() {
+    let clusterNumber = document.getElementById("clusterNumber");
+    let value = Math.round(Number(clusterNumber.value));
+    let min = parseInt(clusterNumber.min);
+    let max = parseInt(clusterNumber.max);
+    if (value < min) {
+        value = min;
+    } else if (value > max) {
+        value = max;
+    }
+    clusterNumber.value = value;
+    return value;
+}
+
+function getClusterNumber() {
+    if (document.getElementById("clusterAuto").checked) {
+        return -1;
+    } else {
+        return changeClusterNumberFormat();
+    }
+
+}
+
 function resetAll(confirmResetAll=true, populate=false) {
     if (reloadNeeded) {
         confirmResetAll=false;
@@ -194,10 +229,14 @@ function resetAll(confirmResetAll=true, populate=false) {
     let imgDir = document.getElementById("localFolder");
     let modelName = document.getElementById("modelNameSelect");
     let caching = document.getElementById("caching");
+    let clusterAuto = document.getElementById("clusterAuto");
+    let clusterNumber = document.getElementById("clusterNumber");
 
     imgDir.disabled = false;
-    modelName.disabled = false;  
+    modelName.disabled = false;
     caching.disabled = false;
+    clusterAuto.disabled = false;
+    clusterNumber.disabled = false;
 
 
     let menuStatusInit = document.getElementById("menuStatusInit");
@@ -245,13 +284,19 @@ function launchProcessing(confirmLaunchProcessing=true) {
     let imgDir = document.getElementById("localFolder");
     let modelName = document.getElementById("modelNameSelect");
     let caching = document.getElementById("caching");
+    let clusterAuto = document.getElementById("clusterAuto");
+    let clusterNumber = document.getElementById("clusterNumber");
+
     let instruction = {'command': 'launchProcessing',
                        'imgDir': imgDir.value,
                        'modelName': modelName.value,
-                       'caching': caching.checked};
+                       'caching': caching.checked,
+                       'clusterNumber': getClusterNumber()};
     imgDir.disabled = true;
-    modelName.disabled = true;  
+    modelName.disabled = true;
     caching.disabled = true;
+    clusterAuto.disabled = true;
+    clusterNumber.disabled = true;
 
     let menuStatusInit = document.getElementById("menuStatusInit");
     let menuStatusProcessing = document.getElementById("menuStatusProcessing");
@@ -1061,8 +1106,8 @@ async function clagnoscoClassImagesSelectionUpdate(update=true) {
     });
 }
 
-function openSaveTab() {
-    if (!document.getElementById("menuStatusDone").classList.contains("hidden")) {
+function openSaveTab(force=false) {
+    if (!document.getElementById("menuStatusDone").classList.contains("hidden") || force) {
         clagnoscoClassImagesSelectionUpdate().then(answerUpdate => {
             document.getElementsByClassName("save-fullscreen")[0].classList.remove("hidden");
             document.querySelector('.container').setAttribute('inert', '');
@@ -1272,10 +1317,14 @@ function importData() {
     let imgDir = document.getElementById("localFolder");
     let modelName = document.getElementById("modelNameSelect");
     let caching = document.getElementById("caching");
+    let clusterAuto = document.getElementById("clusterAuto");
+    let clusterNumber = document.getElementById("clusterNumber");
 
     imgDir.disabled = true;
     modelName.disabled = true;  
     caching.disabled = true;
+    clusterAuto.disabled = true;
+    clusterNumber.disabled = true;
 
     
     let menuStatusProcessingText = document.getElementById("menuStatusProcessing").children[1];
@@ -1330,3 +1379,30 @@ function importData() {
     reader.readAsText(file, "utf-8");
 }
 
+async function exitClagnosco(confirmExitClagnosco=true) {
+    if (confirmExitClagnosco) {
+        const confirmStatus = window.confirm(`Вы действительно хотите завершить работу Clagnosco?`);
+        if (!confirmStatus) {
+            return null;
+        }
+    }
+    
+    if (!serverConnect) {
+        showCustomAlert("Работа Clagnosco уже была заверешна", -1)
+        return false;
+    }
+    
+    let instruction = {'command': 'exitClagnosco'};
+
+    sendToServer(instruction, false, true).then(answer => {
+        if (answer) {
+            showCustomAlert("Работа Clagnosco заверешна", -1)
+            console.log("Работа Clagnosco заверешна");
+            serverConnect = false;
+        } else {
+            console.log("Странное выполнение завершения Clagnosco");
+        }
+    }).catch(error => {
+        alert("Ошибка при завершении программы");
+    });
+}
