@@ -677,6 +677,7 @@ function createRestClagnoscoClass(confirmCreatingRest=true) {
             } else {
                 // alert("Странный ответ сервера.");
             }
+            canBeSaved();
         }).catch(error => {
             console.error("Ошибка обработки запроса:", error);
         });
@@ -753,10 +754,14 @@ function deleteClagnoscoClass(currentButtonDelete=undefined, confirmDeleting=tru
     let nameText = currentButtonChildren[1].textContent;
     let idText = parseInt(currentButtonChildren[0].textContent.replace(/[^0-9]/g, '')) - 1;
 
+    let saveBtn = document.getElementById("initButtonSave");
+    saveBtn.disabled = true;
+
     if (confirmDeleting) {
         const confirmStatus = window.confirm(`Удалить класс «${nameText}»?`);
 
         if (!confirmStatus) {
+            saveBtn.disabled = false;
             return null;
         }
     }
@@ -1054,6 +1059,7 @@ function addEmptyClagnoscoClassServer() {
         } else {
             // alert("Странный ответ сервера.");
         }
+        canBeSaved();
     }).catch(error => {
         console.error("Ошибка обработки запроса:", error);
     });
@@ -1075,9 +1081,11 @@ function copyClagnoscoClassServer(clagnoscoClassID, clagnoscoClassName, clagnosc
         } else {
             // alert("Странный ответ сервера.");
         }
+        canBeSaved();
     }).catch(error => {
         console.error("Ошибка обработки запроса:", error);
         enableAllClagnoscoClasses();
+        canBeSaved();
     });
 }
 
@@ -1085,7 +1093,7 @@ function deleteClagnoscoClassServer(clagnoscoClassID, currentClagnoscoClass, isS
     let instruction = {'command': 'deleteClagnoscoClass',
                        'id': clagnoscoClassID
                       };
-    
+    let classesAmount;
     return sendToServer(instruction).then(answer => {
         if (answer["status"] === "clagnoscoClassDeleted") {
             if (isSelected) {
@@ -1095,8 +1103,10 @@ function deleteClagnoscoClassServer(clagnoscoClassID, currentClagnoscoClass, isS
             redoIndexing();
             enableAllClagnoscoClasses();
             
+            classesAmount = document.querySelectorAll('.class-selection').length;
             document.querySelector(".classes-header").children[0].textContent =
-                'Классы (' + document.querySelectorAll('.class-selection').length + ')';
+                'Классы (' + classesAmount + ')';
+            
 
         } else if (answer["status"] === "error") {
             alert(answer["message"]);
@@ -1104,10 +1114,26 @@ function deleteClagnoscoClassServer(clagnoscoClassID, currentClagnoscoClass, isS
         } else {
             // alert("Странный ответ сервера.");
         }
+        canBeSaved();
     }).catch(error => {
         console.error("Ошибка обработки запроса:", error);
         enableAllClagnoscoClasses();
+        canBeSaved();
     });
+}
+
+function canBeSaved() {
+    let saveBtn = document.getElementById("initButtonSave");
+    let classesAmount = document.querySelectorAll('.class-selection').length;
+    if (classesAmount === 0) {
+        saveBtn.disabled = true;
+        saveBtn.title = "Требуется как минимум один класс";
+        saveBtn.classList.add("save-btn-disabled");
+    } else {
+        saveBtn.disabled = false;
+        saveBtn.title = "";
+        saveBtn.classList.remove("save-btn-disabled");
+    }
 }
 
 async function clagnoscoClassImagesSelectionUpdate(update=true) {
@@ -1231,7 +1257,7 @@ function saveTable(confirmSaveTable=true) {
     sendToServer(instruction).then(answer => {
         if (answer["status"] === "saveTableSuccess") {
             downloadTextFile(answer["table"], answer["fileName"], "text/csv");
-            showCustomAlert('Файл таблицы добавлен в загрузки браузера:\n' + answer["fileName"])
+            showCustomAlert('Файл таблицы добавлен в загрузки браузера: ' + answer["fileName"])
         } else if (answer["status"] === "error") {
             alert(answer["message"]);
         } else {
