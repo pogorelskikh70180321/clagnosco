@@ -143,7 +143,8 @@ def fetch():
 
     if data['command'] == 'endSession':
         state.session_id = None
-    elif data['command'] in ['modelsInFolder', 'clearCache', 'unloadModel', 'basicResponse', 'exitClagnosco']:
+    elif data['command'] in ['modelsInFolder', 'clearCache', 'unloadModel',
+                             'basicResponse', 'exitClagnosco', 'currentStatus']:
         pass
     elif data['command'] in ['launchProcessing', 'importData']:
         state.session_id = incoming_session
@@ -192,6 +193,17 @@ def fetch():
         result = unload_model()
     elif data['command'] == 'importData':
         result = import_data(data)
+    elif data['command'] == 'currentStatus':
+        result = {
+            "img_dir": state.img_dir,
+            "model_name": state.model_name,
+            "caching": state.caching,
+            "cluster_number": state.cluster_number,
+            "img_names": state.img_names,
+            "img_clusters": state.img_clusters,
+            "status": state.status,
+            "session_id": state.session_id
+        }
     elif data['command'] == 'endSession':
         result = {"status": "sessionEnded"}
     elif data['command'] == 'exitClagnosco':
@@ -241,6 +253,9 @@ def launch_processing(data):
             state.model_name = data['modelName']
             if data['modelName'] == "download":
                 state.model, _ = model_loader("download")
+            elif data['modelName'] == "download-save":
+                state.model, _ = model_loader("download-save")
+                state.model_name = "model.pt"
             else:
                 if not os.path.exists(SAVE_FOLDER):
                     os.makedirs(SAVE_FOLDER)

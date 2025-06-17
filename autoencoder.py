@@ -17,6 +17,7 @@ from datetime import datetime
 import os
 import requests
 import tempfile
+import shutil
 from tqdm import tqdm
 from torchmetrics.functional import structural_similarity_index_measure as ssim
 
@@ -155,7 +156,7 @@ class ClagnoscoAutoencoder(nn.Module):
             return latent, None
 
 
-def download_and_load_model(url, delete_temp=True):
+def download_and_load_model(url, delete_temp=True, new_name="model"):
     response = requests.get(url, stream=True)
     if response.status_code != 200:
         raise Exception(f"Не удалось загрузить модель из {url}, код состояния: {response.status_code}")
@@ -179,12 +180,26 @@ def download_and_load_model(url, delete_temp=True):
             os.remove(tmp_path)
         except Exception as e:
             print(f"Не удалось удалить временный файл: {e}")
+    else:
+        if new_name == "":
+            new_name = os.path.basename(tmp_path)
+        else:
+            new_name = new_name + ".pt"
+        save_path = os.path.join(SAVE_FOLDER, new_name)
+        os.makedirs(SAVE_FOLDER, exist_ok=True)
+        shutil.move(tmp_path, save_path)
+    
     return model_instance
 
 
 def model_loader(model=None, first_epoch=0):
     '''
-    - model: модель для загрузки (по умолчанию None, что загружает последнюю модель; создаёт новую модель при "create"; загрузка модели из Hugging Face при "download"; при директории загружает модель из файла; при URL загружает модель из интернета)
+    - model: модель для загрузки (по умолчанию None, что загружает последнюю модель;
+        создаёт новую модель при "create";
+        загрузка и сохранение модели из Hugging Face при "download-save";
+        загрузка модели из Hugging Face при "download";
+        при директории загружает модель из файла;
+        при URL загружает модель из интернета)
     - first_epoch: номер первой эпохи (по умолчанию 0, что означает первую эпоху)
     '''
     if model == "" or model is None:
@@ -208,6 +223,11 @@ def model_loader(model=None, first_epoch=0):
             print("Создание новой модели")
             first_epoch = 0
             model = ClagnoscoAutoencoder()
+        elif model.lower() == "download-save":
+            # Загрузка и созранение модели
+            print(f"Загрузка и сохранение модели по умолчанию из {HF_MODEL_DOWNLOAD_LINK}")
+            model = download_and_load_model(HF_MODEL_DOWNLOAD_LINK, False)
+            first_epoch = -1
         elif model.lower() == "download":
             # Загрузка модели
             print(f"Загрузка модели по умолчанию из {HF_MODEL_DOWNLOAD_LINK}")

@@ -79,6 +79,9 @@ async function sendToServer(data, isBasic=false, isExit=false) {
         const answer = await response.json();
         if (loggingFetch) {
             console.log("Ответ:", answer);
+            if (data["command"] === "currectStatus") {
+                return false;
+            }
         }
         
         if (answer["status"] === "oldSession") {
@@ -282,6 +285,10 @@ function launchProcessing(confirmLaunchProcessing=true) {
     safeReload = false;
 
     let imgDir = document.getElementById("localFolder");
+    if (imgDir.value.trim() === "") {
+        alert("Требуется ввести путь к папке с изображениями");
+        return false;
+    }
     let modelName = document.getElementById("modelNameSelect");
     let caching = document.getElementById("caching");
     let clusterAuto = document.getElementById("clusterAuto");
@@ -303,7 +310,7 @@ function launchProcessing(confirmLaunchProcessing=true) {
     let menuStatusDone = document.getElementById("menuStatusDone");
     let menuStatusClear = document.getElementById("menuStatusClear");
     
-    if (modelName.value == "download") {
+    if (modelName.value == "download" || modelName.value == "download-save") {
         menuStatusProcessing.children[1].textContent = "Загрузка модели из интернета...";
     } else {
         menuStatusProcessing.children[1].textContent = "Загрузка модели...";
@@ -316,6 +323,9 @@ function launchProcessing(confirmLaunchProcessing=true) {
 
     sendToServer(instruction).then(answer => {
         if (answer["status"] === "readyToCluster") {
+            if (modelDownloadSave) {
+                populateModels();
+            }
             clusterImages();
         } else if (answer["status"] === "error") {
             alert(answer["message"]);
@@ -967,7 +977,7 @@ async function populateModels(populate=true, localModelsInclude=true, internetMo
     if (localModelsInclude || internetModelDownloadInclude) {
         clearModels();
     }
-
+    localModelDownloadSave = modelDownloadSave;
     if (reloadNeeded) {
         if (serverReconnect) {
             baseAddModelTemplate("", "(Соединение восстановлено. Перезагрузите страницу)");
@@ -977,8 +987,10 @@ async function populateModels(populate=true, localModelsInclude=true, internetMo
         return null;
     }
 
+    let selectIndex = 0;
     if (internetModelDownloadInclude) {
         baseAddModelTemplate();
+        selectIndex += 1;
     }
 
     if (localModelsInclude) {
@@ -989,12 +1001,37 @@ async function populateModels(populate=true, localModelsInclude=true, internetMo
                 document.getElementById("projectVersion").textContent = `v${answer["projectVersion"]}`;
 
                 let modelNames = answer["modelNames"];
+                let modelDownloaded = false;
+                if (internetModelDownloadInclude) {
+                    for (let i = 0; i < modelNames.length; i++) {
+                        if (modelNames[i] == "model.pt") {
+                            modelDownloaded = true;
+                        }
+                    }
+
+                    if (!modelDownloaded) {
+                        baseAddModelTemplate("download-save", "model.pt (загрузка с сохранением на диск)");
+                        selectIndex += 1;
+                        modelDownloadSave = true;
+                    }
+                }
+
                 for (let i = 0; i < modelNames.length; i++) {
                     baseAddModelTemplate(modelName=modelNames[i]);
                 }
                 let modelOptions = document.getElementById("modelNameSelect");
-                if (modelOptions.children.length > 1) {
-                    modelOptions.selectedIndex = 1;
+
+                if (localModelDownloadSave) {
+                    for (let modelOption = 0; modelOption < modelOptions.children.length; modelOption++) {
+                        if (modelOptions.children[modelOption].textContent == "model.pt") {
+                            selectIndex = modelOption;
+                            modelDownloadSave = false;
+                        }
+                    }
+                }
+
+                if (modelOptions.children.length > selectIndex) {
+                    modelOptions.selectedIndex = selectIndex;
                 }
 
             } else {
@@ -1187,24 +1224,25 @@ function saveTable(confirmSaveTable=true) {
         }
     }
 
-    savingStatusButtons(true, "table");
+    // savingStatusButtons(true, "table");
 
     let instruction = {'command': 'saveTable'};
     
     sendToServer(instruction).then(answer => {
         if (answer["status"] === "saveTableSuccess") {
             downloadTextFile(answer["table"], answer["fileName"], "text/csv");
+            showCustomAlert('Файл таблицы добавлен в загрузки браузера:\n' + answer["fileName"])
         } else if (answer["status"] === "error") {
             alert(answer["message"]);
         } else {
             // alert("Странный ответ сервера.");
         }
         isSaving = false;
-        savingStatusButtons(false);
+        // savingStatusButtons(false);
     }).catch(error => {
         console.error("Ошибка обработки запроса:", error);
         isSaving = false;
-        savingStatusButtons(false);
+        // savingStatusButtons(false);
     });
 }
 
@@ -1377,6 +1415,14 @@ function importData() {
     };
 
     reader.readAsText(file, "utf-8");
+}
+
+function currentStatus() {
+    let instruction = {'command': 'currentStatus'};
+
+    sendToServer(instruction, false, true).then().catch(error => {
+        alert("Ошибка при получении состояния");
+    });
 }
 
 async function exitClagnosco(confirmExitClagnosco=true) {

@@ -7,6 +7,7 @@ var reloadNeeded = false;
 var oldSession = false;
 
 var isSaving = false;
+var modelDownloadSave = false;
 
 var clagnoscoClassesSizes = [];
 var clagnoscoImagesNames = [];
