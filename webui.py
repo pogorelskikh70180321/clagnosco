@@ -26,7 +26,7 @@ from cluster import *
 import warnings
 warnings.filterwarnings('ignore')
 
-PROJECT_VERSION = "1.0"
+PROJECT_VERSION = "1.0.0"
 
 HOST_LINK = '127.0.0.1'
 PORT_LINK = 5000
