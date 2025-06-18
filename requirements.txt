@@ -1,13 +1,14 @@
-torch
-torchvision
-pillow
-numpy
-pandas
-requests
-tqdm
-scikit-learn
-flask
-kneed
-logging
-torchmetrics
-pyinstaller
+--extra-index-url https://download.pytorch.org/whl/cu121
+
+torch==2.2.1
+torchvision==0.17.1
+torchmetrics==1.7.1
+scikit-learn==1.6.1
+kneed==0.8.5
+numpy==1.26.4
+pandas==2.2.3
+pillow==11.0.0
+requests==2.32.3
+tqdm==4.67.1
+flask==3.1.1
+pyinstaller==6.14.1
