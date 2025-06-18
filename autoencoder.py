@@ -9,12 +9,10 @@
 
 from dataset import *
 
-import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 from datetime import datetime
-import os
 import requests
 import tempfile
 import shutil
@@ -23,7 +21,6 @@ from torchmetrics.functional import structural_similarity_index_measure as ssim
 
 import warnings
 warnings.filterwarnings('ignore')
-
 
 # Папка для сохранения моделей и модель на Hugging Face
 SAVE_FOLDER = "models"
@@ -155,8 +152,14 @@ class ClagnoscoAutoencoder(nn.Module):
         else:
             return latent, None
 
+def resource_dir(relative_dir):
+    try:
+        base_dir = sys._MEIPASS
+    except Exception:
+        base_dir = os.path.abspath(".")
+    return os.path.join(base_dir, relative_dir)
 
-def download_and_load_model(url, delete_temp=True, new_name="model"):
+def download_and_load_model(url, delete_temp=True, new_name="model", print_process=True):
     response = requests.get(url, stream=True)
     if response.status_code != 200:
         raise Exception(f"Не удалось загрузить модель из {url}, код состояния: {response.status_code}")
@@ -166,33 +169,37 @@ def download_and_load_model(url, delete_temp=True, new_name="model"):
     with tempfile.NamedTemporaryFile(delete=False, suffix=".pt") as tmp_file:
         tmp_path = tmp_file.name
 
-        with tqdm(total=total_size, unit='B', unit_scale=True, desc="Скачивание модели") as pbar:
+        with tqdm(total=total_size, unit='B', unit_scale=True, desc="Скачивание модели", disable=not print_process) as pbar:
             for chunk in response.iter_content(chunk_size=1024):
                 if chunk:
                     tmp_file.write(chunk)
                     pbar.update(len(chunk))
 
     model_instance = ClagnoscoAutoencoder()
-    model_instance.load_state_dict(torch.load(tmp_path))
+    model_instance.load_state_dict(torch.load(tmp_path, map_location=DEVICE))
     
     if delete_temp:
         try:
             os.remove(tmp_path)
         except Exception as e:
-            print(f"Не удалось удалить временный файл: {e}")
+            print(f"Не удалось удалить временный файл: {e}") if print_process else None
     else:
-        if new_name == "":
-            new_name = os.path.basename(tmp_path)
-        else:
-            new_name = new_name + ".pt"
-        save_path = os.path.join(SAVE_FOLDER, new_name)
-        os.makedirs(SAVE_FOLDER, exist_ok=True)
-        shutil.move(tmp_path, save_path)
+        try:
+            if new_name == "":
+                new_name = os.path.basename(tmp_path)
+            else:
+                new_name = new_name + ".pt"
+            
+            save_path = os.path.join(SAVE_FOLDER, new_name)
+            os.makedirs(SAVE_FOLDER, exist_ok=True)
+            shutil.move(tmp_path, save_path)
+        except Exception as e:
+            print(f"Не удалось переместить файл в папку моделей: {e}") if print_process else None
     
     return model_instance
 
 
-def model_loader(model=None, first_epoch=0):
+def model_loader(model=None, first_epoch=0, print_process=True):
     '''
     - model: модель для загрузки (по умолчанию None, что загружает последнюю модель;
         создаёт новую модель при "create";
@@ -201,53 +208,62 @@ def model_loader(model=None, first_epoch=0):
         при директории загружает модель из файла;
         при URL загружает модель из интернета)
     - first_epoch: номер первой эпохи (по умолчанию 0, что означает первую эпоху)
+    - print_process: bool (по умолчанию True) -- печатает в консоль процесс выполнения
     '''
     if model == "" or model is None:
         # Поиск последней модели в папке сохранений
         model_filenames = sorted([f for f in os.listdir(SAVE_FOLDER) if f.endswith('.pt')])
         if len(model_filenames) == 0:
-            return model_loader(model=HF_MODEL_DOWNLOAD_LINK)
+            return model_loader(model=HF_MODEL_DOWNLOAD_LINK, print_process=print_process)
         model_filename = model_filenames[-1]
+        
+        file_path = os.path.join(SAVE_FOLDER, model_filename)
+        if not os.path.isfile(file_path):
+            raise FileNotFoundError(f"Модель не найдена: {file_path}")
         try:
             first_epoch = int(model_filename.split('_')[4].split(".")[0])
         except:
             first_epoch = -1
         model = ClagnoscoAutoencoder()
-        model.load_state_dict(torch.load(os.path.join(SAVE_FOLDER, model_filename)))
-        print(f"Загружена последняя модель: {model_filename}")
+        model.load_state_dict(torch.load(file_path, map_location=DEVICE))
+        print(f"Загружена последняя модель: {model_filename}") if print_process else None
 
     elif type(model) == str:
         model = model.strip()
         if model.lower() == "create":
             # Создание модели
-            print("Создание новой модели")
+            print("Создание новой модели") if print_process else None
             first_epoch = 0
             model = ClagnoscoAutoencoder()
         elif model.lower() == "download-save":
             # Загрузка и созранение модели
-            print(f"Загрузка и сохранение модели по умолчанию из {HF_MODEL_DOWNLOAD_LINK}")
-            model = download_and_load_model(HF_MODEL_DOWNLOAD_LINK, False)
+            print(f"Загрузка и сохранение модели по умолчанию из {HF_MODEL_DOWNLOAD_LINK}") if print_process else None
+            model = download_and_load_model(HF_MODEL_DOWNLOAD_LINK, False, print_process=print_process)
             first_epoch = -1
         elif model.lower() == "download":
             # Загрузка модели
-            print(f"Загрузка модели по умолчанию из {HF_MODEL_DOWNLOAD_LINK}")
-            model = download_and_load_model(HF_MODEL_DOWNLOAD_LINK)
+            print(f"Загрузка модели по умолчанию из {HF_MODEL_DOWNLOAD_LINK}") if print_process else None
+            model = download_and_load_model(HF_MODEL_DOWNLOAD_LINK, print_process=print_process)
             first_epoch = -1
         elif model.startswith("http"):
             # Загрузка модели из URL
-            print(f"Загрузка модели из {model}")
-            model = download_and_load_model(model)
+            print(f"Загрузка модели из {model}") if print_process else None
+            model = download_and_load_model(model, print_process=print_process)
             first_epoch = -1
         else:
             # Загрузка модели из string
             model_filename = model
+            file_path = os.path.join(SAVE_FOLDER, model_filename)
+            if not os.path.isfile(file_path):
+                raise FileNotFoundError(f"Model file not found: {file_path}")
+            
             try:
                 first_epoch = int(model_filename.split('_')[4].split(".")[0])
             except:
                 first_epoch = -1
             model = ClagnoscoAutoencoder()
-            model.load_state_dict(torch.load(os.path.join(SAVE_FOLDER, model_filename)))
-            print(f"Загружена выбранная модель: {model_filename}")
+            model.load_state_dict(torch.load(file_path, map_location=DEVICE))
+            print(f"Загружена выбранная модель: {model_filename}") if print_process else None
     return model, first_epoch
 
 def vector_accuracy_loss(pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
@@ -279,7 +295,8 @@ class CombinedMSEVALSSIMLoss(nn.Module):
 
 def train_autoencoder(transformed_dataset, train_batches, model=None,
                       num_epochs=10, first_epoch=0,
-                      lr=1e-4, criterion_type=""):
+                      lr=1e-4, criterion_type="",
+                      print_process=True):
     """
     Обучение модели автоэнкодера на преобразованном наборе данных.
     Модель сохраняется в папке SAVE_FOLDER ("./models/") с временной меткой.
@@ -291,6 +308,7 @@ def train_autoencoder(transformed_dataset, train_batches, model=None,
         - first_epoch: начальная эпоха для обучения (по умолчанию 0, что означает первую)
         - lr: скорость обучения для оптимизатора (по умолчанию 1e-4)
         - criterion_type: тип функции потерь (по умолчанию "" -> "MSE") из "MSE", "VAL", "MSE+VAL+SSIM" (0.45, 0.45, 0.1)
+        - print_process: bool (по умолчанию True) -- печатает в консоль процесс выполнения
     
     Выходные данные (файлы сохраняются в SAVE_FOLDER):
         - model: обученная модель автоэнкодера
@@ -298,7 +316,7 @@ def train_autoencoder(transformed_dataset, train_batches, model=None,
     """
     if first_epoch < 0:
         first_epoch = 0
-    model, first_epoch = model_loader(model=model, first_epoch=first_epoch)
+    model, first_epoch = model_loader(model=model, first_epoch=first_epoch, print_process=print_process)
     model.train()
     model.to(DEVICE)
 
@@ -321,7 +339,8 @@ def train_autoencoder(transformed_dataset, train_batches, model=None,
 
         with open(os.path.join(SAVE_FOLDER, loss_log_filename), 'w') as loss_log:
             
-            tqdm_bar = tqdm(range(len_train_batches), total=len_train_batches, desc=f"Эпоха {epoch+1}/{num_epochs}")
+            tqdm_bar = tqdm(range(len_train_batches), total=len_train_batches, desc=f"Эпоха {epoch+1}/{num_epochs}",
+                            disable=not print_process)
             for n, _ in enumerate(tqdm_bar):
                 batch_dict, _ = next(batched_buckets_gen)
 
@@ -345,7 +364,7 @@ def train_autoencoder(transformed_dataset, train_batches, model=None,
 
         avg_loss = sum(losses) / len(losses)
         torch.save(model.state_dict(), os.path.join(SAVE_FOLDER,model_filename))
-        print(f"[Эпоха {epoch+1}] Средняя ошибка: {avg_loss:.6f} - Сохранено как {model_filename}")
+        print(f"[Эпоха {epoch+1}] Средняя ошибка: {avg_loss:.6f} - Сохранено как {model_filename}") if print_process else None
 
 
 def open_image(img):
@@ -429,7 +448,7 @@ def run_image_through_autoencoder(model, input_image, decode=True):
         return latent.squeeze(0), None
 
 
-def test_model(model, test_batches, transformed_dataset, loss_type="MSE"):
+def test_model(model, test_batches, transformed_dataset, loss_type="MSE", print_process=True):
     """
     Проверка модели на тестовом наборе данных.
 
@@ -438,6 +457,7 @@ def test_model(model, test_batches, transformed_dataset, loss_type="MSE"):
         - test_batches: список [(ширина, высота), [idx1, idx2, ...]] батчей
         - transformed_dataset: экземпляр TransformedClagnoscoDataset
         - loss_type: тип потерь (по умолчанию "MSE") "MSE", "MAE", "Cosine"
+        - print_process: bool (по умолчанию True) -- печатает в консоль процесс выполнения
     Выходные данные:
         - avg_loss: средняя ошибка пиксельной реконструкции (MSE) для каждого тестового изображения
         - losses: ошибка пиксельной реконструкции (MSE) для каждого тестового изображения
@@ -447,7 +467,7 @@ def test_model(model, test_batches, transformed_dataset, loss_type="MSE"):
 
     test_list = batch_buckets_to_list(test_batches)
     losses = []
-    tqdm_bar = tqdm(test_list, desc="Проверка модели")
+    tqdm_bar = tqdm(test_list, desc="Проверка модели", disable=not print_process)
     for test_idx in tqdm_bar:
         sample = transformed_dataset[test_idx]
         test_image = sample['image'].unsqueeze(0).to(DEVICE)
@@ -468,7 +488,7 @@ def test_model(model, test_batches, transformed_dataset, loss_type="MSE"):
         current_avg_loss = sum(losses) / len(losses)
         tqdm_bar.set_postfix(ср_потери=f"{current_avg_loss:.4f}", потери=f"{loss:.4f}")
     avg_loss = sum(losses) / len(losses)
-    print(f"Средняя ошибка: {avg_loss:.6f}")
+    print(f"Средняя ошибка: {avg_loss:.6f}") if print_process else None
     return avg_loss, losses
 
 def pixel_rgb_vector_accuracy(img1: Image.Image, img2: Image.Image,):
@@ -484,13 +504,13 @@ def pixel_rgb_vector_accuracy(img1: Image.Image, img2: Image.Image,):
 
     return accuracy.mean()
 
-def test_model_accuracy(model, test_batches, dataset):
+def test_model_accuracy(model, test_batches, dataset, print_process=True):
     model.eval()
     model.to(DEVICE)
 
     test_list = batch_buckets_to_list(test_batches)
     img_accuracies = []
-    tqdm_bar = tqdm(test_list, desc="Проверка модели")
+    tqdm_bar = tqdm(test_list, desc="Проверка модели", disable=not print_process)
     for test_idx in tqdm_bar:
         sample = dataset[test_idx]
         test_image = sample['image']
@@ -503,11 +523,11 @@ def test_model_accuracy(model, test_batches, dataset):
         current_avg_img_accuracies = sum(img_accuracies) / len(img_accuracies)
         tqdm_bar.set_postfix(ср_acc=f"{current_avg_img_accuracies:.4f}", acc=f"{img_accuracy:.4f}")
     avg_img_accuracy = sum(img_accuracies) / len(img_accuracies)
-    print(f"Accuracy: {avg_img_accuracy:.6f}")
+    print(f"Accuracy: {avg_img_accuracy:.6f}") if print_process else None
     return avg_img_accuracy
 
 
-def test_models(model_list, test_batches, transformed_dataset, save_avg=True):
+def test_models(model_list, test_batches, transformed_dataset, save_avg=True, print_process=True):
     """
     Тестирование нескольких моделей автоэнкодера на преобразованном наборе данных.
 
@@ -515,6 +535,7 @@ def test_models(model_list, test_batches, transformed_dataset, save_avg=True):
         - model_list: список названий моделей (строки) для тестирования
         - test_batches: список [(ширина, высота), [idx1, idx2, ...]] батчей
         - transformed_dataset: экземпляр TransformedClagnoscoDataset
+        - print_process: bool (по умолчанию True) -- печатает в консоль процесс выполнения
     
     Выходные данные:
         - avg_losses_dict: словарь с названиями моделей в качестве ключей и средней ошибкой пиксельной реконструкции (MSE) в качестве значений
@@ -523,9 +544,9 @@ def test_models(model_list, test_batches, transformed_dataset, save_avg=True):
     avg_losses_dict = {}
     losses_dict = {}
     for model in model_list:
-        print(f"Проверка модели: {model}")
-        model_instance, _ = model_loader(model=model)
-        avg_losses, losses = test_model(model_instance, test_batches, transformed_dataset)
+        print(f"Проверка модели: {model}") if print_process else None
+        model_instance, _ = model_loader(model=model, print_process=print_process)
+        avg_losses, losses = test_model(model_instance, test_batches, transformed_dataset, print_process=print_process)
         avg_losses_dict[model] = avg_losses
         losses_dict[model] = losses
     if save_avg:
@@ -537,9 +558,11 @@ def test_models(model_list, test_batches, transformed_dataset, save_avg=True):
     return avg_losses_dict, losses_dict
 
 
-def delete_untrained_loss_log_files():
+def delete_untrained_loss_log_files(print_process=True):
     """
     Удаление файлов, которые не соответствуют ни одной модели в папке сохранений.
+    
+    - print_process: bool (по умолчанию True) -- печатает в консоль процесс выполнения
     """
     models = sorted([f.split('.pt')[0] for f in os.listdir(SAVE_FOLDER) if f.endswith('.pt')])
     for filename in sorted([f for f in os.listdir(SAVE_FOLDER) if f.endswith('_loss.txt')])[:-1]:
@@ -547,30 +570,30 @@ def delete_untrained_loss_log_files():
             file_path = os.path.join(SAVE_FOLDER, filename)
             try:
                 os.remove(file_path)
-                print(f"Удалён файл лога потерь: {file_path}")
+                print(f"Удалён файл лога потерь: {file_path}") if print_process else None
             except Exception as e:
-                print(f"Ошибка при удалении файла {file_path}: {e}")
+                print(f"Ошибка при удалении файла {file_path}: {e}") if print_process else None
 
 
-def images_to_latent(image_folder, model=None, caching=False, ignore_errors=True, print_process=False):
+def images_to_latent(image_folder, model=None, caching=False, ignore_errors=True, print_process=True):
     """
     Преобразование изображений из папки в латентные векторы с помощью модели автоэнкодера.
     Аргументы:
-        image_folder: str (путь к папке с изображениями)
-        model: ClagnoscoAutoencoder или str (сама модель, путь к модели или URL)
-        caching: bool (по умолчанию False) - кэшировать и использовать латентные векторы в файлах _latent.npy)
-        ignore_errors: bool (по умолчанию True) - ингорировать файлы с ошибками
-        print_process: bool (по умолчанию False) -- печатает в консоль процесс выполнения
+        - image_folder: str (путь к папке с изображениями)
+        - model: ClagnoscoAutoencoder или str (сама модель, путь к модели или URL)
+        - caching: bool (по умолчанию False) - кэшировать и использовать латентные векторы в файлах _latent.npy)
+        - ignore_errors: bool (по умолчанию True) - ингорировать файлы с ошибками
+        - print_process: bool (по умолчанию True) -- печатает в консоль процесс выполнения
     Возвращает:
-        images_and_latents: список кортежей (путь к изображению, латентный вектор)
-        errored_images: список изображений, которых не получилось обработать
-        status: bool - если False, то возникла ошибка и процесс преобразования прервался
+        - images_and_latents: список кортежей (путь к изображению, латентный вектор)
+        - errored_images: список изображений, которых не получилось обработать
+        - status: bool - если False, то возникла ошибка и процесс преобразования прервался
     """
     
     if not os.path.exists(image_folder):
         raise FileNotFoundError(f"Папка с изображениями не найдена: {image_folder}")
     
-    model, _ = model_loader(model=model)
+    model, _ = model_loader(model=model, print_process=print_process)
     model.to(DEVICE)
 
     images_and_latents = []
@@ -580,7 +603,7 @@ def images_to_latent(image_folder, model=None, caching=False, ignore_errors=True
     
     if print_process:
         print("Извлечение скрытых признаков у изображений в папке")
-        filenames = tqdm(filenames)
+        filenames = tqdm(filenames, disable=not print_process)
     
     for filename in filenames:
         try:

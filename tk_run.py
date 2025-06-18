@@ -7,12 +7,15 @@
 #  Специализация / Профиль подготовки: Искусственный интеллект и анализ данных
 #  Учебная группа: ИД 23.3/Б3-21
 
+print("Clagnosco Start")
+
 import threading
 import time
 import webbrowser
 import os
 import tkinter as tk
 import sys
+
 try:
     import google.colab
     IS_COLAB = True
@@ -41,13 +44,16 @@ def switch_to_main_button(host_link, port_link):
         command=lambda: webbrowser.open(f'http://{host_link}:{port_link}/')
     )
     button.pack()
+
+    webbrowser.open(f'http://{host_link}:{port_link}/')
     
     root.loading_complete = True
 
 def load_and_start_server():
     from webui import run_server
     
-    threading.Thread(target=lambda: run_server(HOST_LINK, PORT_LINK), daemon=True).start()
+    threading.Thread(target=lambda: run_server(HOST_LINK, PORT_LINK,
+                                               open_link=False, print_process=False), daemon=True).start()
     print(f"Clagnosco v{PROJECT_VERSION} запущен на {HOST_LINK}:{PORT_LINK}")
     
     time.sleep(1)

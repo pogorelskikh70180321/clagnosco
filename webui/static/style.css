@@ -87,14 +87,14 @@ html, body {
 }
 
 @media (max-height: 400px) and (min-width: 841px) {
-  .init-tab {
-    max-height: 100vh;
-    overflow-y: auto;
-    height: 50%;
-  }
-  .menu-tab {
-    width: 200px;
-  }
+    .init-tab {
+        max-height: 100vh;
+        overflow-y: auto;
+        height: 50%;
+    }
+    .menu-tab {
+        width: 200px;
+    }
 }
 
 @media (max-width: 840px) {
@@ -104,6 +104,10 @@ html, body {
 
     .menu-tab, .class-tab-loading, .class-tab {
         min-width: 100%;
+    }
+
+    .init-tab-cluser-number {
+        width: 50% !important;
     }
 }
 
@@ -147,6 +151,7 @@ html, body {
 
 .init-tab-checkbox-label {
     font-size: 16px !important;
+    user-select: none;
 }
 
 .init-tab input[type="checkbox"] {

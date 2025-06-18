@@ -268,7 +268,9 @@ function resetAll(confirmResetAll=true, populate=false) {
 
             safeReload = true;
 
-            loading.classList.add('hidden');
+            setTimeout(() => {
+                loading.classList.add('hidden');
+            }, 500);
         });
     });
 }
@@ -1461,6 +1463,7 @@ async function exitClagnosco(confirmExitClagnosco=true) {
     
     if (!serverConnect) {
         showCustomAlert("Работа Clagnosco уже была завершена", -1)
+        safeReload = true;
         return false;
     }
     
@@ -1471,10 +1474,27 @@ async function exitClagnosco(confirmExitClagnosco=true) {
             showCustomAlert("Работа Clagnosco завершена", -1)
             console.log("Работа Clagnosco завершена");
             serverConnect = false;
+            safeReload = true;
         } else {
             console.log("Странное выполнение завершения Clagnosco");
         }
     }).catch(error => {
         alert("Ошибка при завершении программы");
     });
+}
+
+function printProcess(manual=undefined) {
+    let instruction = {'command': 'printProcess'};
+    if (manual !== undefined) {
+        instruction['printProcess'] = manual;
+    }
+    
+    return sendToServer(instruction).then().catch(error => {
+        console.error("Ошибка обработки запроса:", error);
+    });
+}
+
+function info() {
+    console.log("currentStatus();");
+    console.log("printProcess(manual=undefined); // manual = true для печати процесса");
 }

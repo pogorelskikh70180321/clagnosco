@@ -17,7 +17,7 @@ from tqdm import tqdm
 import warnings
 warnings.filterwarnings('ignore')
 
-def determine_optimal_clusters_elbow(latents: np.ndarray) -> int:
+def determine_optimal_clusters_elbow(latents: np.ndarray, print_process=True) -> int:
     """Определить оптимальное количество кластеров, используя метод локтя."""
     n_samples = len(latents)
     if n_samples < 3:
@@ -28,7 +28,7 @@ def determine_optimal_clusters_elbow(latents: np.ndarray) -> int:
     
     inertias = []
     
-    for k in tqdm(k_range):
+    for k in tqdm(k_range, disable=not print_process):
         kmeans = KMeans(n_clusters=k, random_state=42, n_init=10)
         kmeans.fit(latents)
         inertias.append(kmeans.inertia_)

@@ -9,16 +9,11 @@
 
 from flask import Flask, render_template, send_file, abort, request, jsonify
 import logging
-from PIL import Image
-import io
 import shutil
-import pandas as pd
 from datetime import datetime
-import gc
 import time
-import os
-import sys
-from io import StringIO
+import gc
+import io
 
 from autoencoder import *
 from cluster import *
@@ -34,6 +29,7 @@ PORT_LINK = 5000
 
 class AppState:
     def __init__(self):
+        self.print_process = True
         self.img_dir = None
         self.model_name = None
         self.model = None
@@ -138,13 +134,13 @@ def serve_image_small(filename, new_size=300, new_quality=85):
 def fetch():
     data = request.get_json()
     incoming_session = data["sessionID"]
-    print("Command:", data['command'])
     state = app.state
+    print("Command:", data['command']) if state.print_process else None
 
     if data['command'] == 'endSession':
         state.session_id = None
     elif data['command'] in ['modelsInFolder', 'clearCache', 'unloadModel',
-                             'basicResponse', 'exitClagnosco', 'currentStatus']:
+                             'basicResponse', 'exitClagnosco', 'currentStatus', 'printProcess']:
         pass
     elif data['command'] in ['launchProcessing', 'importData']:
         state.session_id = incoming_session
@@ -195,6 +191,7 @@ def fetch():
         result = import_data(data)
     elif data['command'] == 'currentStatus':
         result = {
+            "print_process": state.print_process,
             "img_dir": state.img_dir,
             "model_name": state.model_name,
             "caching": state.caching,
@@ -202,14 +199,16 @@ def fetch():
             "img_names": state.img_names,
             "img_clusters": state.img_clusters,
             "status": state.status,
-            "session_id": state.session_id
+            "session_id": state.session_id,
         }
     elif data['command'] == 'endSession':
         result = {"status": "sessionEnded"}
+    elif data['command'] == 'printProcess':
+        result = print_process_change(data)
     elif data['command'] == 'exitClagnosco':
         os._exit(0)
     else:
-        print(f"Неизвестный запрос:\n{data}")
+        print(f"Неизвестный запрос:\n{data}") if state.print_process else None
     return jsonify(result)
 
 def clear_cache_webui(data):
@@ -252,9 +251,9 @@ def launch_processing(data):
         if data['modelName'] != state.model_name:
             state.model_name = data['modelName']
             if data['modelName'] == "download":
-                state.model, _ = model_loader("download")
+                state.model, _ = model_loader("download", print_process=state.print_process)
             elif data['modelName'] == "download-save":
-                state.model, _ = model_loader("download-save")
+                state.model, _ = model_loader("download-save", print_process=state.print_process)
                 state.model_name = "model.pt"
             else:
                 if not os.path.exists(SAVE_FOLDER):
@@ -263,35 +262,35 @@ def launch_processing(data):
                 selected_model_dir = os.path.join(SAVE_FOLDER, data['modelName'])
                 if os.path.isfile(selected_model_dir):
                     try:
-                        state.model, _ = model_loader(data['modelName'])
-                    except:
-                        return state_error_model_load(state, data['modelName'], start_time)
+                        state.model, _ = model_loader(data['modelName'], print_process=state.print_process)
+                    except Exception as e:
+                        return state_error_model_load(state, data['modelName'], start_time, error=e)
                 else:
-                    return state_error_model_load(state, data['modelName'], start_time)
+                    return state_error_model_load(state, data['modelName'], start_time, error=e)
 
         state.caching = data['caching']
         state.cluster_number = data['clusterNumber']
         state.status = {"status": "readyToCluster",
                         "time": time.time() - start_time}
         return state.status
-    except:
+    except Exception as e:
         state.status = {
             "status": "error",
             "type": "Launch error",
-            "message": f"Ошибка запуска",
+            "message": f"Ошибка запуска: {e}",
             "time": time.time() - start_time
             }
         return state.status
 
 
-def state_error_model_load(state, name, start_time):
+def state_error_model_load(state, name, start_time, error):
     state.img_dir = None
     unload_model()
 
     state.status = {
         "status": "error",
         "type": "Local model not found",
-        "message": f"Модель \"{name}\" не найдена",
+        "message": f"Ошибка загрузки модели \"{name}\": {str(error)}",
         "time": time.time() - start_time
         }
     return state.status
@@ -304,8 +303,8 @@ def cluster_images():
                                                 model=state.model,
                                                 caching=state.caching,
                                                 ignore_errors=True,
-                                                print_process=True)
-    print("images_to_latent завершено")
+                                                print_process=state.print_process)
+    print("images_to_latent завершено") if state.print_process else None
 
     if len(images_and_latents) < 2:
         state.status = {
@@ -317,10 +316,11 @@ def cluster_images():
         return state.status
     
     state.img_names = [item[0] for item in images_and_latents]
-    state.img_clusters = cluster_latent_vectors(images_and_latents, cluster_amount=state.cluster_number, print_process=True)
-    print("cluster_latent_vectors завершено")
+    state.img_clusters = cluster_latent_vectors(images_and_latents, cluster_amount=state.cluster_number,
+                                                print_process=state.print_process)
+    print("cluster_latent_vectors завершено") if state.print_process else None
     cluster_sizes = cluster_measuring(state.img_clusters)
-    print("cluster_measuring завершено")
+    print("cluster_measuring завершено") if state.print_process else None
     state.status = {"status": "readyToPopulate",
                     "classesSizes": cluster_sizes,
                     "imagesNames": state.img_names,
@@ -689,7 +689,7 @@ def import_data(data):
     try:
         csv_data = data["table"]
 
-        df = pd.read_csv(StringIO(csv_data), sep=";", encoding="utf-8")
+        df = pd.read_csv(io.StringIO(csv_data), sep=";", encoding="utf-8")
         df = df.fillna("")
 
         if not isinstance(csv_data, str):
@@ -737,7 +737,7 @@ def import_data(data):
         return state.status
     
     except Exception as e:
-        print(f"Ошибка импорта: {str(e)}")
+        print(f"Ошибка импорта: {str(e)}") if state.print_process else None
         state.status = {
             "status": "error",
             "type": "Import error",
@@ -746,10 +746,45 @@ def import_data(data):
         }
         return state.status
 
+def print_process_change(data):
+    start_time = time.time()
+    state = app.state
+    try:
+        old_print_process = state.print_process
+        if "printProcess" in data:
+            if not isinstance(data["printProcess"], bool):
+                raise ValueError("printProcess должен быть bool")
+            state.print_process = data["printProcess"]
+            state.status = {"status": "printProcessChanged",
+                            "changeType": "manual",
+                            "oldState": old_print_process,
+                            "newState": state.print_process,
+                            "time": time.time() - start_time}
+        else:
+            state.print_process = not state.print_process
+            state.status = {"status": "printProcessChanged",
+                            "changeType": "toggle",
+                            "oldState": old_print_process,
+                            "newState": state.print_process,
+                            "time": time.time() - start_time}
+        return state.status
+    except Exception as e:
+        state.status = {
+            "status": "error",
+            "type": "Print process change error",
+            "message": f"Ошибка переключения печати в консоль: {str(e)}",
+            "time": time.time() - start_time
+        }
+        return state.status
 
-def run_server(host_link='127.0.0.1', port_link=5000, debug=False, use_reloader=False):
+
+def run_server(host_link='127.0.0.1', port_link=5000,
+               debug=False, use_reloader=False, open_link=True,
+               print_process=True):
+    app.state.print_process = print_process
+    if open_link:
+        webbrowser.open(f'http://{host_link}:{port_link}/')
     app.run(host=host_link, port=port_link, debug=debug, use_reloader=use_reloader)
 
-
 if __name__ == '__main__':
-    run_server(HOST_LINK, PORT_LINK, debug=True, use_reloader=True)
+    run_server(HOST_LINK, PORT_LINK, debug=True, use_reloader=True, open_link=False, print_process=True)
