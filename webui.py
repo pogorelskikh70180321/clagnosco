@@ -240,8 +240,8 @@ def launch_processing(data):
 
     try:
         state.img_dir = data['imgDir'].strip('"')
-        if state.img_dir[-1] not in ["\\", "/"]:
-            state.img_dir = state.img_dir + "\\"
+        # if state.img_dir[-1] not in ["\\", "/"]:
+        #     state.img_dir = state.img_dir + "\\"
         
         if not os.path.isdir(state.img_dir):
             state.status = {"status": "error",
