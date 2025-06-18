@@ -934,14 +934,26 @@ function deleteAllImages() {
 function populateImages(probs=undefined) {
     deleteAllImages();
 
+    let neededSlash = "";
     if (probs === undefined) {
         for (let i = 0; i < clagnoscoImagesNames.length; i++) {
-            baseAddImageContainerTemplate(imageSrc=smallImgView+imagesFolder+clagnoscoImagesNames[i],
+            if (imagesFolder[imagesFolder.length-1] !== "/" && imagesFolder[imagesFolder.length-1] !== "\\") {
+                neededSlash = "/";
+            } else {
+                neededSlash = "";
+            }
+            baseAddImageContainerTemplate(imageSrc=smallImgView+neededSlash+imagesFolder+clagnoscoImagesNames[i],
                                           imageName=clagnoscoImagesNames[i]);
+
         }
     } else {
         probs.forEach(([name, prob, isMember]) => {
-            baseAddImageContainerTemplate(imageSrc=smallImgView+imagesFolder+name,
+            if (imagesFolder[imagesFolder.length-1] !== "/" && imagesFolder[imagesFolder.length-1] !== "\\") {
+                neededSlash = "/";
+            } else {
+                neededSlash = "";
+            }
+            baseAddImageContainerTemplate(imageSrc=smallImgView+neededSlash+imagesFolder+name,
                                           imageName=name,
                                           prob=prob,
                                           isMember=isMember);
