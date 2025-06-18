@@ -179,7 +179,6 @@ function changeClusterAuto() {
     let clusterAuto = document.getElementById("clusterAuto");
     let clusterNumber = document.getElementById("clusterNumber");
 
-    console.log(clusterNumber.value);
     if (!clusterAuto.checked) {
         changeClusterNumberFormat();
         clusterNumber.classList.remove("hidden");
@@ -934,31 +933,22 @@ function deleteAllImages() {
 function populateImages(probs=undefined) {
     deleteAllImages();
 
-    let neededSlash = "";
+    let neededSlash = "/";
+    if (imagesFolder[imagesFolder.length-1] === "/" || imagesFolder[imagesFolder.length-1] === "\\") {
+        neededSlash = "";
+    }
+
     if (probs === undefined) {
         for (let i = 0; i < clagnoscoImagesNames.length; i++) {
-            if (imagesFolder[imagesFolder.length-1] === "/" || imagesFolder[imagesFolder.length-1] === "\\") {
-                neededSlash = "";
-            } else {
-                neededSlash = "/";
-            }
             baseAddImageContainerTemplate(imageSrc=smallImgView+imagesFolder+neededSlash+clagnoscoImagesNames[i],
                                           imageName=clagnoscoImagesNames[i]);
-
         }
     } else {
         probs.forEach(([name, prob, isMember]) => {
-        for (let i = 0; i < clagnoscoImagesNames.length; i++) {
-            if (imagesFolder[imagesFolder.length-1] === "/" || imagesFolder[imagesFolder.length-1] === "\\") {
-                neededSlash = "";
-            } else {
-                neededSlash = "/";
-            }
             baseAddImageContainerTemplate(imageSrc=smallImgView+imagesFolder+neededSlash+name,
                                           imageName=name,
                                           prob=prob,
                                           isMember=isMember);
-            }
         });
     }
     
