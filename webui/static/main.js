@@ -937,26 +937,28 @@ function populateImages(probs=undefined) {
     let neededSlash = "";
     if (probs === undefined) {
         for (let i = 0; i < clagnoscoImagesNames.length; i++) {
-            if (imagesFolder[imagesFolder.length-1] !== "/" && imagesFolder[imagesFolder.length-1] !== "\\") {
-                neededSlash = "/";
-            } else {
+            if (imagesFolder[imagesFolder.length-1] === "/" || imagesFolder[imagesFolder.length-1] === "\\") {
                 neededSlash = "";
+            } else {
+                neededSlash = "/";
             }
-            baseAddImageContainerTemplate(imageSrc=smallImgView+neededSlash+imagesFolder+clagnoscoImagesNames[i],
+            baseAddImageContainerTemplate(imageSrc=smallImgView+imagesFolder+neededSlash+clagnoscoImagesNames[i],
                                           imageName=clagnoscoImagesNames[i]);
 
         }
     } else {
         probs.forEach(([name, prob, isMember]) => {
-            if (imagesFolder[imagesFolder.length-1] !== "/" && imagesFolder[imagesFolder.length-1] !== "\\") {
-                neededSlash = "/";
-            } else {
+        for (let i = 0; i < clagnoscoImagesNames.length; i++) {
+            if (imagesFolder[imagesFolder.length-1] === "/" || imagesFolder[imagesFolder.length-1] === "\\") {
                 neededSlash = "";
+            } else {
+                neededSlash = "/";
             }
-            baseAddImageContainerTemplate(imageSrc=smallImgView+neededSlash+imagesFolder+name,
+            baseAddImageContainerTemplate(imageSrc=smallImgView+imagesFolder+neededSlash+name,
                                           imageName=name,
                                           prob=prob,
                                           isMember=isMember);
+            }
         });
     }
     
