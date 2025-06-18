@@ -1107,7 +1107,7 @@ function deleteClagnoscoClassServer(clagnoscoClassID, currentClagnoscoClass, isS
             
             classesAmount = document.querySelectorAll('.class-selection').length;
             document.querySelector(".classes-header").children[0].textContent =
-                'Классы (' + classesAmount + ')';
+                'Классы (' + classesAmount + '):';
             
 
         } else if (answer["status"] === "error") {
