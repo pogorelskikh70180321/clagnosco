@@ -10,7 +10,7 @@
 # Проверка версии
 import sys
 if sys.version_info < (3, 11):
-    print("Clagnosco требуется Python 3.11 или выше")
+    print("Для программы Clagnosco требуется Python 3.11 или выше")
     sys.exit(0)
 
 # Импорт всех требуемых данных
