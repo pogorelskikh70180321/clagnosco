@@ -1,0 +1,51 @@
+**ТЕСТ ПЛАНЫ**
+
+Тест план (название): Функциональное тестирование
+ID: FT
+Цель: Устранить ошибки функциональности системы.
+Объекты тестирования:
+1. webui/static/main.js,
+2. webui/static/templates.js,
+3. webui/static/vars.js,
+4. autoencoder.py,
+5. cluster.py,
+6. webui.py,
+7. tk_run.py.
+Статус: Произведён
+
+Тест план (название): Позитивное тестирование
+ID: PT
+Цель: Устранить ошибки при верных входных данных и ожидаемых действиях пользователя.
+Объекты тестирования:
+1. webui/static/main.js,
+2. webui/static/templates.js,
+3. webui/static/vars.js,
+4. autoencoder.py,
+5. cluster.py,
+6. webui.py,
+7. tk_run.py.
+Статус: Произведён
+
+Тест план (название): Негативное тестирование
+ID: NT
+Цель: Устранить ошибки при неверных входных данных и ошибочных действиях пользователя.
+Объекты тестирования:
+1. webui/static/main.js,
+2. webui/static/templates.js,
+3. webui/static/vars.js,
+4. autoencoder.py,
+5. cluster.py,
+6. webui.py,
+7. tk_run.py.
+Статус: Произведён
+
+Тест план (название): Тестирование интерфейса
+ID: GUI
+Цель: Устранить ошибки функционирования пользовательского интерфейса и его графического составляющего.
+Объекты тестирования:
+1. webui/templates/index.html,
+2. webui/static/main.js,
+3. webui/static/style.css,
+4. webui.py,
+5. tk_run.py.
+Статус: Произведён
