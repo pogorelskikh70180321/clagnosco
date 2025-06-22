@@ -9,8 +9,8 @@ ID: FT
 3. webui/static/vars.js,
 4. autoencoder.py,
 5. cluster.py,
-6. webui.py,
-7. tk_run.py.
+6. tk_run.py,
+7. webui.py.
 Статус: Произведён
 
 Тест план (название): Позитивное тестирование
@@ -22,8 +22,8 @@ ID: PT
 3. webui/static/vars.js,
 4. autoencoder.py,
 5. cluster.py,
-6. webui.py,
-7. tk_run.py.
+6. tk_run.py,
+7. webui.py.
 Статус: Произведён
 
 Тест план (название): Негативное тестирование
@@ -35,8 +35,8 @@ ID: NT
 3. webui/static/vars.js,
 4. autoencoder.py,
 5. cluster.py,
-6. webui.py,
-7. tk_run.py.
+6. tk_run.py,
+7. webui.py.
 Статус: Произведён
 
 Тест план (название): Тестирование интерфейса
@@ -46,6 +46,6 @@ ID: GUI
 1. webui/templates/index.html,
 2. webui/static/main.js,
 3. webui/static/style.css,
-4. webui.py,
-5. tk_run.py.
+4. tk_run.py,
+5. webui.py.
 Статус: Произведён
