@@ -1,5 +1,9 @@
 # Clagnosco
 
+<p align="center">
+    <img src="https://raw.githubusercontent.com/pogorzelskich/clagnosco/refs/heads/main/webui/static/images/clagnosco.png" alt="Логотип Clagnosco" title="Логотип Clagnosco" width="200"/>
+</p>
+
 Ссылка на Google Colab проекта:
 * https://colab.research.google.com/drive/1utFAAZpIxO1-YfWsn4jSytONyLXJLuZj
 
